@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+    <body>
+        <head>
+        <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+
+        <link rel="stylesheet" href="../stylesheets/tabs.css">
+        <!-- <script type="text/javascript" src="../javascripts/tabs.js"></script> -->
+        </head>
+        <main class="container">
+            <div class="allSelectors">
+                <div class="monthYear">
+                    <form>
+                        <select id="month"></select>
+                    </form>
+                    <form>
+                        <select id="year" style=visibility:hidden></select>
+                    </form>
+                </div>
+                <div>
+                    <input type="checkbox" id="snapshotBox" name="snapshotBox">
+                    <label for="snapshotBox">View Snapshot</label><br>
+                </div>
+                <div>
+                    <input type="checkbox" id="percentBox" name="percentBox">
+                    <label for="percentBox">Change View</label><br>
+                </div>
+            </div>
+            
+                <div id="totalsDisplay">
+                </div>
+        </main>
+    </body>
+</html>

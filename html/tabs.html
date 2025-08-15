@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+	<head>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+
+	<link rel="stylesheet" href="../stylesheets/tabs.css">
+	<script type="text/javascript" src="../javascripts/tabs.js"></script>
+	</head>
+	<body>
+		<div class="tab">
+			<button class="tablinks" onclick="openCity(event, 'makeEntry')" id="makeEntryTab">Make Entry</button>
+			<button class="tablinks" onclick="openCity(event, 'seriesView')" id="seriesViewTab">Series View</button>
+			<button class="tablinks" onclick="openCity(event, 'dateView')" id="dateViewTab">Date View</button>
+			<button class="tablinks" onclick="openCity(event, 'stats')" id="statsTab">Stats</button>
+			<button class="tablinks" onclick="openCity(event, 'logout')" id="logoutTab">Login</button>
+		</div>
+		
+		<div id="makeEntry" class="tabcontent">
+			<span onclick="this.parentElement.style.display='none'" class="topright">&times</span>
+			<main class="container" id="makeEntryPage">
+				<form id="entry-form">
+					<div id="publisherStuff">
+						<select id="publisher"></select>
+						<div id="xmenCheckBox" style=visibility:hidden>
+							<label id="xmen">
+								<input type="checkbox" id="xmenBox" name="xmenBox" >
+								X-Men?
+							</label>
+						</div>
+						<div id="xmenAdjCheckBox" style=visibility:hidden>
+							<label id="xmenAdj">
+								<input type="checkbox" id="xmenAdjBox" name="xmenAdjBox" >
+								X-Men Adjacent?
+							</label>    
+						</div>
+					</div>
+					<h3>Series Name</h3>
+					<select id="titleButton"></select>
+					<div id="seriesIn" class="seriesSearch">
+                        <input type="string" class="input" required placeholder="Series Name" id="seriesField" style="margin-right: 15px;">
+                        <button type="button" id="searchSeriesButton" class="searchButton">Search</button>
+                    </div>
+					<!-- <input type="string" class="input" required placeholder="Series Name" id="seriesField"> -->
+					<h3>Issues Read</h3>
+					<input type="string" class="input" required placeholder="Issue Numbers" id="issueField">
+					<h3>Date</h3>
+					<input type="string" class="input" required placeholder="Enter Date" id="dateField">
+					<input type="checkbox" id="todayBox" name="todayBox">
+					<label for="todayBox">Today?</label><br>
+					<br>
+					<br>
+					<br>
+					<input type="submit" class="btn btn-accent" value="Make Entry" />
+				</form>
+			</main>
+		</div>
+		<div id="seriesView" class="tabcontent">
+			<span onclick="this.parentElement.style.display='none'" class="topright">&times</span>
+		<div id="tableContainer" class="tableContainer">
+				<form id="series-search">
+				<select id="searchTitle"></select>
+				<input type="string" class="input" required placeholder="Series Name" id="seriesSearch">
+				<input type="submit" class="btn btn-accent" value="Search" />
+			</form>
+			<table border="0" cellpadding="0" cellspacing="0" width="100%" class="scrollTable">
+				<thead class="fixedHeader" id="seriesTableHead">
+				<tr>
+				<th><a href="#">Cover</a></th>  
+				<th><a href="#">Series</a></th>
+				<th><a href="#">Issue</a></th>
+				<th><a href="#">Date</a></th>
+				</tr>
+				</thead>
+				<tbody class="scrollContent" id="seriesTable">
+				</tbody>
+			</table>
+		</div>
+		<p id="issueCountSeries" style="text-align: center;">Issues Read:</p> 
+		</div>
+		<div id="dateView" class="tabcontent">
+		<span onclick="this.parentElement.style.display='none'" class="topright">&times</span>
+		<div id="tableContainer" class="tableContainer">
+			<form id="date-search">
+				<input type="string" class="input" required placeholder="Enter Date" id="dateSearch">
+				<input type="submit" class="btn btn-accent" value="Search" />
+				<div id="checkBoxes">
+					<input type="checkbox" id="todayBoxDateView" name="todayBox">
+					<label for="todayBoxDateView">Today?</label><br>
+					<input type="checkbox" id="monthBoxDateView" name="monthBox">
+					<label for="monthBoxDateView">Month Mode</label><br>
+				</div>
+			</form>
+			<table border="0" cellpadding="0" cellspacing="0" width="100%" class="scrollTable">
+				<thead class="fixedHeader">
+				<tr>
+				<th><a href="#">Cover</a></th>
+				<th><a href="#">Series</a></th>
+				<th><a href="#">Issue</a></th>
+				<th><a href="#">Date</a></th>
+				</tr>
+				</thead>
+				<tbody class="scrollContent" id="dateTable">
+				</tbody>
+			</table>
+		</div>
+		<p id="issueCountDate" style="text-align: center;">Issues Read:</p> 
+		</div>
+		<div id="stats" class="tabcontent">
+		<span onclick="this.parentElement.style.display='none'" class="topright">&times</span>
+		<main class="container">
+			<div class="allSelectors">
+				<div class="monthYear">
+					<form>
+						<select id="month"></select>
+					</form>
+					<form>
+						<select id="year" style=visibility:hidden></select>
+					</form>
+				</div>
+				<div>
+					<input type="checkbox" id="snapshotBox" name="snapshotBox">
+					<label for="snapshotBox">View Snapshot</label><br>
+				</div>
+				<div>
+					<input type="checkbox" id="percentBox" name="percentBox">
+					<label for="percentBox">Change View</label><br>
+				</div>
+			</div>
+			<div id="snapshotLabel">
+                <label id="snapshotStart">Snapshot Start Date: </label>
+                <label id="snapshotEnd">Snapshot End Date: </label>
+            </div>
+				<div id="totalsDisplay">
+				</div>
+		</main>
+		</div>
+		<div id="logout" class="tabcontent">
+			<span onclick="this.parentElement.style.display='none'" class="topright">&times</span>
+			<main class="container" id="LOGIN">
+				<button type="button" id="logoutButton" class="searchButton">Logout</button>
+			</main>
+		</div>
+        <script src="../javascripts/renderer.js"></script>
+
+	</body>
+</html>
