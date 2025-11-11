@@ -112,7 +112,9 @@ def getSeriesSelectList():
         publisher=request.args.get('publisher')
         year=request.args.get('startYear')
     toRet=[]
-    m = mokkari.api("wally_west2048", "Nuggetdude12!")
+    mok_user=app.config['mok_user']
+    mok_pass=app.config['mok_pass']
+    m = mokkari.api(mok_user, mok_pass)    
     if year=="":
         series=m.series_list({"name": name, "publisher":publisher})
     else:
