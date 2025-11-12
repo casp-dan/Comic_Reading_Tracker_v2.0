@@ -11,6 +11,7 @@
 			<button class="tablinks" onclick="openCity(event, 'makeEntry')" id="makeEntryTab">Make Entry</button>
 			<button class="tablinks" onclick="openCity(event, 'seriesView')" id="seriesViewTab">Series View</button>
 			<button class="tablinks" onclick="openCity(event, 'dateView')" id="dateViewTab">Date View</button>
+			<button class="tablinks" onclick="openCity(event, 'creatorView')" id="creatorViewTab">Creator View</button>
 			<button class="tablinks" onclick="openCity(event, 'stats')" id="statsTab">Stats</button>
 			<button class="tablinks" onclick="openCity(event, 'logout')" id="logoutTab">Login</button>
 		</div>
@@ -104,6 +105,30 @@
 			</table>
 		</div>
 		<p id="issueCountDate" style="text-align: center;">Issues Read:</p> 
+		</div>
+		<div id="creatorView" class="tabcontent">
+			<span onclick="this.parentElement.style.display='none'" class="topright">&times</span>
+			<div id="tableContainer" class="tableContainer">
+					<form id="creator-search">
+					<select id="creatorRole"></select>
+					<select id="searchCreator"></select>
+					<input type="string" class="input" required placeholder="Creator Name" id="creatorSearch">
+					<input type="submit" class="btn btn-accent" value="Search" />
+				</form>
+				<table border="0" cellpadding="0" cellspacing="0" width="100%" class="scrollTable">
+					<thead class="fixedHeader" id="creatorTableHead">
+					<tr>
+					<th><a href="#">Cover</a></th>  
+					<th><a href="#">Series</a></th>
+					<th><a href="#">Issue</a></th>
+					<th><a href="#">Date</a></th>
+					</tr>
+					</thead>
+					<tbody class="scrollContent" id="creatorTable">
+					</tbody>
+				</table>
+			</div>
+			<p id="issueCountCreator" style="text-align: center;">Issues Read:</p> 
 		</div>
 		<div id="stats" class="tabcontent">
 		<span onclick="this.parentElement.style.display='none'" class="topright">&times</span>

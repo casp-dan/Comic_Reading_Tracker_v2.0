@@ -7,14 +7,13 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 CORS(app)
 
-port_num=5000
+port_num=5003
 app.config["mok_user"]=""
 app.config["mok_pass"]=""
 mysql = MySQL()
 app.config['MYSQL_DATABASE_USER'] = ''
 app.config['MYSQL_DATABASE_PASSWORD'] = ''
 app.config['MYSQL_DATABASE_DB'] = ''
-# app.config['MYSQL_DATABASE_DB'] = 'testComics'
 app.config['MYSQL_DATABASE_HOST'] = ''
 mysql.init_app(app)
 
@@ -35,12 +34,15 @@ def loginThingy():
         app.config['MYSQL_DATABASE_HOST'] = host
         app.config["mok_user"]=mok_username
         app.config["mok_pass"]=mok_password
-        mydb=mysql.connect()
-        mydb.close()
+        try:
+            mydb=mysql.connect()
+            mydb.close()
+        except BaseException as e:
+            status=e
         return 'string'
     except:
-        return 'no'
-    
+        return status
+
 @app.route("/logout", methods = ['GET', 'POST', 'OPTIONS'] )
 def logout():
     app.config['MYSQL_DATABASE_USER'] = ""

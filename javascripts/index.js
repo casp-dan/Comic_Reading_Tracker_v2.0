@@ -5,17 +5,15 @@ const fs = require('fs');
 const axios = require('axios');
 const prompt = require('electron-prompt');
 const electronSquirrelStartup = require('electron-squirrel-startup');
-const port=5000
+const port=5003
 let seriesSelectList;
 let currentSeriesID=null;
 let seriesSelectWindow;
 let issueInfoWindow;
 let win;
 let objson="";
-const supabaseUrl = 'https://tlsyuolttzxvfuemkvny.supabase.co'
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsc3l1b2x0dHp4dmZ1ZW1rdm55Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzQzNzA3OSwiZXhwIjoyMDczMDEzMDc5fQ.CKV8xVQf9RHyV1gtO-XKbABZ3XJLIsAP6TTZj6j0sj4"
-const supabase = createClient(supabaseUrl, supabaseKey)
-
+let credentials={};
+let supabase;
 
 async function initialize () {
     
@@ -53,18 +51,20 @@ async function initialize () {
 
 }
 
-async function doLogin(){
-    mainWindow()
+async function doLogin() {
+    mainWindow();
     let loggedIn;
-    while (loggedIn!=='string'){
-        loggedIn=await login()
+    while (loggedIn !== "string") {
+        loggedIn = await login();
+        console.log(loggedIn )
     }
-    win.show()
+    supabase = createClient(credentials['supabaseUrl'], credentials['supabaseKey'])
+    win.show();
 }
 
 async function mainWindow(){
 
-    win = new BrowserWindow({
+    win = new BrowserWindow({ 
         width: 800,
         height: 600,
         show: false, 
@@ -80,16 +80,16 @@ async function mainWindow(){
 }
 
 app.whenReady().then(() => {
-
-
     ipcMain.handle('dropdownList:series', getSeriesList)
     ipcMain.handle('dropdownList:publishers', getPubList)
-    
+    ipcMain.handle("dropdownList:creators", getCreatorList);
+
     ipcMain.handle('process:dothelogin', login)
     ipcMain.handle('process:logout', logout)
 
     ipcMain.handle('views:series', getSeriesEntries)
     ipcMain.handle('views:date', getDateEntries)
+    ipcMain.handle("views:creator", getCreatorEntries);
     
     ipcMain.handle('stats:yearly', getYearlyStats)
     ipcMain.handle('stats:monthly', getMonthlyStats)
@@ -98,6 +98,7 @@ app.whenReady().then(() => {
     
     ipcMain.handle("entries:createSeries", createSeries)
     ipcMain.handle("entries:getLastDateTime", getLastDateTime)
+    ipcMain.handle("entries:entryExists", entryExists);
     ipcMain.handle("entries:addIssue", addIssue)
     
     ipcMain.handle("dialogs:errorMessage", errorMessage)
@@ -168,6 +169,20 @@ async function getPubList(test) {
     }
 }
 
+async function getCreatorList(_event, role) {
+    try{
+        let { data, error } = await supabase
+            .from(`${role}`)
+            .select(`${role}Name`)
+            .order(`${role}Name`, { ascending: true })
+        
+        return data
+    }
+    catch (err){
+        console.error(err.response.data); 
+    }
+}
+
 async function getSeriesEntries(_event, seriesName) {
     try{
         let data=await callRPC("seriesName",{})
@@ -191,6 +206,38 @@ async function getDateEntries(_event, inDate) {
     }
 }
 
+async function getCreatorEntries(_event, nameRole) {
+    try {
+        let name=nameRole[0]
+        let role=nameRole[1]
+        let toRet
+        switch (role) {
+            case 'Artist':
+                data=await callRPC("getartistentries",{creatorname:name})
+                toRet=formatCreatorDates(data)
+                return toRet
+            case 'Colorist':
+                data=await callRPC("getcolorentries",{creatorname:name})
+                toRet=formatCreatorDates(data)
+                return toRet
+            case 'Inker':
+                data=await callRPC("getinkerentries",{creatorname:name})
+                toRet=formatCreatorDates(data)
+                return toRet
+            case 'Penciller':
+                data=await callRPC("getpencillerentries",{creatorname:name})
+                toRet=formatCreatorDates(data)
+                return toRet
+            case 'Writer':
+                data=await callRPC("getwriterentries",{creatorname:name})
+                toRet=formatCreatorDates(data)
+                return toRet
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
 async function getYearlyStats(_event, year) {
     let totals=[]
     let newyear=`${year}-01-01 00:00:00+00`
@@ -202,7 +249,7 @@ async function getYearlyStats(_event, year) {
     totals.push(data[0])
     for (const publisher of pubs) {
         let pubArgs={searchpub:publisher['publisher'], newyear:newyear, nye:nye}
-        data=await callRPC('getyearxmen',pubArgs)
+        data=await callRPC('getyearpub',pubArgs)
         totals.push(data[0])
     }
     data=await callRPC("getyearxmen",args)
@@ -228,7 +275,7 @@ async function getMonthlyStats(_event, monthYear) {
     totals.push(data[0])
     for (const publisher of pubs) {
         let pubArgs={searchpub:publisher['publisher'], startmonth:startmonth, endmonth:endmonth}
-        data=await callRPC(getmonthpub,pubArgs)
+        data=await callRPC("getmonthpub",pubArgs)
         totals.push(data[0])
     }
     data=await callRPC("getmonthxmen",args)
@@ -467,29 +514,32 @@ async function makeSnapPrompt(cycle){
     return date
 }
 
-async function login(_event){
-    let credentials={}
-    let response
+async function login(_event) {
+    let response;
     let data;
     if (fs.existsSync("userInfo.txt")) {
         let readInfo = fs.readFileSync(`userInfo.txt`).toString();
-        readInfo=readInfo.split('\n')
-        readInfo.forEach(function(listItem){
-            let splitted=listItem.split(": ")
-            credentials[splitted[0]]=splitted[1]
-        })
-        let db=await makeLoginPrompt("Database",'text')
-        response=await fetch(`http://127.0.0.1:${port}/loginThingy?user=${credentials["sql_user"]}&password=${credentials["password"]}&db=${db}&host=${credentials["host"]}&mok_user=${credentials["mok_user"]}&mok_password=${credentials["mok_password"]}`)//.catch(console.log("error"))
-        data=await response.text();  
-    }
-    else{
-        let user=await makeLoginPrompt("User",'text')
-        let mok_user=await makeLoginPrompt("Mokkari User",'text')
-        let host=await makeLoginPrompt("Host",'text')
-        let db=await makeLoginPrompt("Database",'text')
-        let password=await makeLoginPrompt("Password",'password')
-        response=await fetch(`http://127.0.0.1:${port}/loginThingy?user=${user}&password=${password}&db=${db}&host=${host}&mok_user=${mok_user}`);
-        data=await response.text();
+        readInfo = readInfo.split("\n");
+        readInfo.forEach(function (listItem) {
+            let splitted = listItem.split(": ");
+            credentials[splitted[0]] = splitted[1];
+        });
+        let db = await makeLoginPrompt("Database", "text");
+        response = await fetch(
+            `http://127.0.0.1:${port}/loginThingy?user=${credentials["sql_user"]}&password=${credentials["password"]}&db=${db}&host=${credentials["host"]}&mok_user=${credentials["mok_user"]}&mok_password=${credentials["mok_password"]}`
+        ); //.catch(console.log("error"))
+        data = await response.text();
+    } else {
+        let user = await makeLoginPrompt("User", "text");
+        let mok_user = await makeLoginPrompt("Mokkari User", "text");
+        let host = await makeLoginPrompt("Host", "text");
+        let db = await makeLoginPrompt("Database", "text");
+        let password = await makeLoginPrompt("Password", "password");
+        response = await fetch(
+            `http://127.0.0.1:${port}/loginThingy?user=${user}&password=${password}&db=${db}&host=${host}&mok_user=${mok_user}&mok_password=${credentials["mok_password"]}`
+        );
+        console.log("asdfasdfasdfasdf");
+        data = await response.text();
     }
     return data;
 }
@@ -521,6 +571,7 @@ async function addPublisher(publisher){
 
 function formatOutDates(data){
     data.forEach(function(listItem){
+        console.log(listItem);
         let baseDate=listItem['DateString']
         let splitBaseDate=baseDate.split("T")[0]
         let dateSplit=splitBaseDate.split('-')
@@ -532,6 +583,24 @@ function formatOutDates(data){
             dateSplit[2]=dateSplit[2].replaceAll('0','')
         }
         listItem['DateString']=`${dateSplit[1]}/${dateSplit[2]}/${dateSplit[0]}`
+        
+    })
+    return data
+}
+
+function formatCreatorDates(data){
+    data.forEach(function(listItem){
+        let baseDate=listItem['datestring']
+        let splitBaseDate=baseDate.split("T")[0]
+        let dateSplit=splitBaseDate.split('-')
+        dateSplit[0]=dateSplit[0].replace('20',"")
+        if (dateSplit[1][0]=='0'){
+            dateSplit[1]=dateSplit[1].replaceAll('0','')
+        }
+        if (dateSplit[2][0]=='0'){
+            dateSplit[2]=dateSplit[2].replaceAll('0','')
+        }
+        listItem['datestring']=`${dateSplit[1]}/${dateSplit[2]}/${dateSplit[0]}`
         
     })
     return data
@@ -739,7 +808,6 @@ async function getCoverURL(searchissue,searchseries){
     }
 }
 
-
 async function getSeriesIDRPC(searchseries){
     let { data, error } = await supabase
     .from("Series")
@@ -812,6 +880,7 @@ async function creatorExists(role,searchcreator){
 }
 
 async function callRPC(func,args){
+    // console.log(args)
     const { data, error } = await supabase.rpc(func, args)
     if (data!==null){
         return data

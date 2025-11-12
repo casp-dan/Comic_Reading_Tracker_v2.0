@@ -4,12 +4,14 @@ const { contextBridge, ipcRenderer } = require('electron/renderer')
 
 contextBridge.exposeInMainWorld('dropdownList', {
     seriesList: () => ipcRenderer.invoke('dropdownList:series'),
-    pubList: () => ipcRenderer.invoke('dropdownList:publishers')
+    pubList: () => ipcRenderer.invoke('dropdownList:publishers'),
+    creatorList: (value) => ipcRenderer.invoke('dropdownList:creators', value),
 })
 
 contextBridge.exposeInMainWorld('views', {
     seriesEntries: (value) => ipcRenderer.invoke('views:series', value),
-    dateEntries: (value) => ipcRenderer.invoke('views:date', value)
+    dateEntries: (value) => ipcRenderer.invoke('views:date', value),
+    creatorEntries: (value) => ipcRenderer.invoke('views:creator', value)
 })
 
 contextBridge.exposeInMainWorld('stats', {

@@ -20,16 +20,22 @@ const dateFieldViewTab = document.querySelector("#dateSearch");
 const dateSearch = document.querySelector("#date-search");
 const dateTable = document.querySelector("#dateTable");
 const issueCountTextDate = document.querySelector("#issueCountDate");
-const monthsDrop=document.querySelector("#month");
-const yearsDrop=document.querySelector("#year");
-const total=document.querySelector("#totalValue");
-const marvelTotal=document.querySelector("#marvelValue");
-const dcTotal=document.querySelector("#dcValue");
-const imageTotal=document.querySelector("#imageValue");
-const darkHorseTotal=document.querySelector("#darkHorseValue");
-const boomTotal=document.querySelector("#boomValue");
-const xmenTotal=document.querySelector("#xmenValue");
-const seriesTotal=document.querySelector("#seriesValue");
+const creatorSearchButton = document.querySelector("#creator-search");
+const roleDrop = document.querySelector("#creatorRole");
+const creatorDrop = document.querySelector("#searchCreator");
+const creatorSearch = document.querySelector("#creatorSearch");
+const creatorTable = document.querySelector("#creatorTable");
+const issueCountCreator = document.querySelector("#issueCountCreator");
+const monthsDrop = document.querySelector("#month");
+const yearsDrop = document.querySelector("#year");
+const total = document.querySelector("#totalValue");
+const marvelTotal = document.querySelector("#marvelValue");
+const dcTotal = document.querySelector("#dcValue");
+const imageTotal = document.querySelector("#imageValue");
+const darkHorseTotal = document.querySelector("#darkHorseValue");
+const boomTotal = document.querySelector("#boomValue");
+const xmenTotal = document.querySelector("#xmenValue");
+const seriesTotal = document.querySelector("#seriesValue");
 const statsForm = document.querySelector("#entry-form");
 const totalsDisplay = document.querySelector("#totalsDisplay");
 const snapshotBox = document.querySelector("#snapshotBox");
@@ -41,11 +47,27 @@ const xmenCheckBox = document.querySelector("#xmenCheckBox");
 const xmenAdjCheckBox = document.querySelector("#xmenAdjCheckBox");
 const snapshotEnd = document.querySelector("#snapshotEnd");
 const logoutButton = document.querySelector("#logoutButton");
-const today="";
+const today = "";
 
 
 let seriesList=[]
-const months=["Overview","Yearly","January","February","March","April","May","June","July","August","September","October","November","December"];
+let creatorList;
+const months = [
+    "Overview",
+    "Yearly",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
 const years=["2022","2023","2024", "2025"];
 let totalValues=[]
 
@@ -175,10 +197,10 @@ yearsDrop.addEventListener('change', function() {
     getTotals()
 });
 
-document.getElementById('statsTab').addEventListener('click', async () => {
-    makeTotalsDisplay().then(() => {
-        console.log(totalValues)
-    });
+document.getElementById("statsTab").addEventListener("click", async () => {
+    makeTotalsDisplay()//.then(() => {
+        // console.log(totalValues);
+    // });
     getOverview();
 });
 
@@ -210,7 +232,30 @@ logoutButton.addEventListener('click', async function() {
 })
 
 
+creatorDrop.addEventListener("change", function () {
+    creatorSearch.value = this.value;
+});
 
+
+creatorSearch.addEventListener("input", function () {
+    renderCreatorView(creatorList);
+});
+
+roleDrop.addEventListener("change", function () {
+    makeDropdowns(this.value)
+    creatorSearch.value=""
+    creatorDrop.value=""
+    clearCreatorTable();
+});
+
+document.getElementById("creatorViewTab").addEventListener("click", async () => {
+    makeDropdowns("roles");
+});
+
+creatorSearchButton.addEventListener("submit", (event) => {
+    event.preventDefault();
+    listCreatorViewItems(creatorSearch.value,roleDrop.value);
+});
 
 
 
@@ -241,39 +286,96 @@ async function handleSnapshot() {
 }
 
 async function makeDropdowns(type) {
-    if (type==="series"){
-        let objList=await window.dropdownList.seriesList()
-        for (const seriesName of objList) {
-            seriesList.push(seriesName['SeriesName'])
-        }
-        let html=getDropdown(seriesList,'SeriesName')
+    if (type === "series") {
+        seriesList = await window.dropdownList.seriesList();
+        let html = getNamedDropdown(seriesList, 'SeriesName');
         seriesDrop.innerHTML = html;
-    }
-    else if (type==="seriesView"){
-        let objList=await window.dropdownList.seriesList()
-        for (const seriesName of objList) {
-            seriesList.push(seriesName['SeriesName'])
-        }
-        let html=getDropdown(seriesList,'SeriesName')
+    } else if (type === "seriesView") {
+        seriesList = await window.dropdownList.seriesList();
+        let html = getNamedDropdown(seriesList, 'SeriesName');
         seriesDropViewTab.innerHTML = html;
-    }
-    else if (type==="pub"){
-        let objList=await window.dropdownList.pubList()
-        let list=[]
-        for (const pubName of objList) {
-            list.push(pubName['publisher'])
-        }
-        let html=getDropdown(list,'publisher')
-        html+=`<option value=\"addPublisher\">Add Publisher</option> \n`
+    } else if (type === "pub") {
+        const list = await window.dropdownList.pubList();
+        console.log(list)
+        let html = getNamedDropdown(list, 'publisher');
+        html += `<option value=\"addPublisher\">Add Publisher</option> \n`;
         publisherDrop.innerHTML = html;
+    } else if (type === "roles") {
+        const list=['Artist', 'Colorist', 'Inker', 'Penciller', 'Writer']
+        let html = getDropdown(list);
+        roleDrop.innerHTML = html;
+    }
+    else{
+        if (type==='Colorist'){
+            type='Color'
+        }
+        creatorList = await window.dropdownList.creatorList(type);
+        let html = getNamedDropdown(creatorList, `${type}Name`);
+        creatorDrop.innerHTML = html;
     }
 }
 
-function getDropdown(list,index){
+function renderCreatorView(names) {
+    console.log(names)
+    const searchCreator = names.filter(function (name) {
+        return name[`${roleDrop.value}Name`]
+            .toString()
+            .toLowerCase()
+            .replaceAll("'", "")
+            .includes(
+                creatorSearch.value.toLowerCase().replaceAll("'", "")
+            );
+    });
+    const htmlNames = getNamedDropdown(searchCreator, `${roleDrop.value}Name`);
+    creatorDrop.innerHTML = htmlNames;
+}
+
+function clearCreatorTable() {
+    creatorTable.innerHTML = "";
+    issueCountCreator.innerText = "Issues Read:";
+}
+
+async function listCreatorViewItems(name,role) {
+    let issueCount = 0;
+    clearCreatorTable();
+    let issueList = await window.views.creatorEntries([name,role]);
+    issueList.forEach(function (item) {
+        console.log(item)
+        const html=getSeriesHTML(item['seriesname'],item['issuename'],item['datestring'],item['coverurl']);
+        // const html = getDateHTML(item[1], item[0], item[3], item[2]);
+        creatorTable.innerHTML += html;
+        issueCount += 1;
+    });
+    issueCountCreator.innerText += " " + issueCount;
+}
+
+// async function listSeriesViewItems(){
+//     let issueCount=0;
+//     clearSeriesTable();
+//     const series=seriesFieldViewTab.value;
+//     let issueList=await window.views.seriesEntries(series)
+//     issueList.forEach(function(item){
+//         const html=getSeriesHTML(series,item['IssueName'],item['DateString'],item['coverURL']);
+//         seriesTable.innerHTML+=html;
+//         issueCount+=1;
+//     });
+//     issueCountTextSeries.innerText+=" "+issueCount;
+// }
+
+function getDropdown(list){
     let html=``;
     html+="<option value=\"\"></option> \n";
     list.forEach(function(listItem){
         html+=(`<option value=\"${listItem}\">${listItem}</option> \n`);
+    })
+    return html;
+}
+
+function getNamedDropdown(list,index){
+    let html=``;
+    html+="<option value=\"\"></option> \n";
+    list.forEach(function(listItem){
+        html+=(`<option value=\"${listItem[index]}\">${listItem[index]}</option> \n`);
     })
     return html;
 }
@@ -289,17 +391,17 @@ function getStatsDropdown(list){
 
 function render(series){
     const searchSeries=series.filter(function(title) {
-        return title.toString().toLowerCase().replaceAll("\'","").includes(seriesField.value.toLowerCase().replaceAll("\'",""));
+        return title['SeriesName'].toString().toLowerCase().replaceAll("\'","").includes(seriesField.value.toLowerCase().replaceAll("\'",""));
     });
-    const htmlTitles=getDropdown(searchSeries);
+    const htmlTitles=getNamedDropdown(searchSeries, 'SeriesName');
     seriesDrop.innerHTML = htmlTitles;
 }
 
 function renderView(series){
     const searchSeries=series.filter(function(title) {
-        return title.toString().toLowerCase().replaceAll("\'","").includes(seriesFieldViewTab.value.toLowerCase().replaceAll("\'",""));
+        return title['SeriesName'].toString().toLowerCase().replaceAll("\'","").includes(seriesFieldViewTab.value.toLowerCase().replaceAll("\'",""));
     });
-    const htmlTitles=getDropdown(searchSeries);
+    const htmlTitles=getNamedDropdown(searchSeries, 'SeriesName');
     seriesDropViewTab.innerHTML = htmlTitles;
 }
 
