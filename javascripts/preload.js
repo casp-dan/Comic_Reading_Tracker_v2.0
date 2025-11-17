@@ -11,7 +11,8 @@ contextBridge.exposeInMainWorld('dropdownList', {
 contextBridge.exposeInMainWorld('views', {
     seriesEntries: (value) => ipcRenderer.invoke('views:series', value),
     dateEntries: (value) => ipcRenderer.invoke('views:date', value),
-    creatorEntries: (value) => ipcRenderer.invoke('views:creator', value)
+    creatorEntries: (value) => ipcRenderer.invoke('views:creator', value),
+    seriesExists: (value) => ipcRenderer.invoke('views:seriesExists', value)
 })
 
 contextBridge.exposeInMainWorld('stats', {
@@ -21,12 +22,11 @@ contextBridge.exposeInMainWorld('stats', {
     snapshotStats: (value) => ipcRenderer.invoke('stats:snapshot',value)
 })
 
-contextBridge.exposeInMainWorld("entries", {
+contextBridge.exposeInMainWorld('entries',{
     createSeries: (value) => ipcRenderer.invoke("entries:createSeries", value),
     getLastDateTime: (value) => ipcRenderer.invoke("entries:getLastDateTime", value),
-    entryExists: (value) => ipcRenderer.invoke("entries:entryExists", value),
-    addIssue: (value) => ipcRenderer.invoke("entries:addIssue", value),
-});
+    addIssue: (value) => ipcRenderer.invoke("entries:addIssue", value)
+})
 
 contextBridge.exposeInMainWorld('dialogs',{
     error: (value) => ipcRenderer.invoke("dialogs:errorMessage", value),
