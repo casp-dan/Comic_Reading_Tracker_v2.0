@@ -7,41 +7,30 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 CORS(app)
 
-port_num=5003
+port_num=5000
 app.config["mok_user"]=""
 app.config["mok_pass"]=""
 mysql = MySQL()
-app.config['MYSQL_DATABASE_USER'] = ''
-app.config['MYSQL_DATABASE_PASSWORD'] = ''
-app.config['MYSQL_DATABASE_DB'] = ''
-app.config['MYSQL_DATABASE_HOST'] = ''
+app.config['PASSWORD'] = ''
 mysql.init_app(app)
 
 
 @app.route("/loginThingy", methods = ['GET', 'POST', 'OPTIONS'] )
 def loginThingy():
     if request.method == 'GET':    
-        user= request.args.get('user')
         password= request.args.get('password')
+        userPass= request.args.get('userPass')
         mok_password= request.args.get('mok_password')
-        db= request.args.get('db')
-        host= request.args.get('host')
         mok_username= request.args.get('mok_user')
     try:
-        app.config['MYSQL_DATABASE_USER'] = user
-        app.config['MYSQL_DATABASE_PASSWORD'] = password
-        app.config['MYSQL_DATABASE_DB'] = db
-        app.config['MYSQL_DATABASE_HOST'] = host
         app.config["mok_user"]=mok_username
         app.config["mok_pass"]=mok_password
-        try:
-            mydb=mysql.connect()
-            mydb.close()
-        except BaseException as e:
-            status=e
-        return 'string'
-    except:
-        return status
+        if userPass==password:
+            return 'string'
+        else:
+            return 'no'
+    except BaseException as e:
+        return e
 
 @app.route("/logout", methods = ['GET', 'POST', 'OPTIONS'] )
 def logout():
@@ -62,20 +51,6 @@ def seriesAPI():
     seriesID=None
     
     seriesID=getSeriesInfo(year,publisher,seriesName)
-    # m = mokkari.api(mok_user, mok_pass)
-    # seriesList=m.series_list({"year_began":year, "publisher":publisher})
-    # for i in seriesList:
-    #     if i.display_name==seriesName:
-    #         seriesID=i.id
-            
-    # if seriesID is not None:
-    #     mydb = mysql.connect()
-    #     mycursor=mydb.cursor()
-    #     sql=f"UPDATE Series SET seriesID={seriesID} WHERE SeriesName=\"{seriesName}\""
-    #     mycursor.execute(sql)
-    #     mydb.commit()
-    #     mycursor.close()
-    #     mydb.close()
     return str(seriesID)
 
 @app.route("/issueAPI", methods = ['GET', 'POST', 'OPTIONS'] )
@@ -83,7 +58,6 @@ def issueAPI():
     if request.method == 'GET':
         issue=request.args.get('issue')
         seriesID=request.args.get('seriesID')
-        # year=`request.args.get('year')
     mok_user=app.config['mok_user']
     mok_pass=app.config['mok_pass']
     m = mokkari.api(mok_user, mok_pass)

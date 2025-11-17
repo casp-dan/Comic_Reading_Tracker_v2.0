@@ -5,7 +5,7 @@ const fs = require('fs');
 const axios = require('axios');
 const prompt = require('electron-prompt');
 const electronSquirrelStartup = require('electron-squirrel-startup');
-const port=5003
+const port=5000
 let seriesSelectList;
 let currentSeriesID=null;
 let seriesSelectWindow;
@@ -17,34 +17,34 @@ let supabase;
 
 async function initialize () {
     
-    var python = require('child_process').spawn('python3', ['./python/app.py']);
-    python.stdout.on('data', function (data) {
-        console.log("data: ", data.toString('utf8'))
-    });
-    python.stderr.on('data', (data) => {
-        console.log(`stderr: ${data}`);
-    });
+    // var python = require('child_process').spawn('python3', ['./python/app.py']);
+    // python.stdout.on('data', function (data) {
+    //     console.log("data: ", data.toString('utf8'))
+    // });
+    // python.stderr.on('data', (data) => {
+    //     console.log(`stderr: ${data}`);
+    // });
 
-    // let python;
-    // python = path.join(process.cwd(), 'python/dist/app.exe')
-    // var execfile = require("child_process").execFile;
-    // execfile(
-    //     python, 
-    //     {
-    //         windowsHide: true,
-    //     },
-    //     (err, stdout, stderr) => {
-    //         if (err) {
-    //             console.log(err);
-    //         }
-    //         if (stdout) {
-    //             console.log(stdout);
-    //         }
-    //         if (stderr) {
-    //             console.log(stderr);
-    //         }
-    //     }
-    // )
+    let python;
+    python = path.join(process.cwd(), 'app.exe')
+    var execfile = require("child_process").execFile;
+    execfile(
+        python, 
+        {
+            windowsHide: true,
+        },
+        (err, stdout, stderr) => {
+            if (err) {
+                console.log(err);
+            }
+            if (stdout) {
+                console.log(stdout);
+            }
+            if (stderr) {
+                console.log(stderr);
+            }
+        }
+    )
     
     doLogin()
 
@@ -56,7 +56,7 @@ async function doLogin() {
     let loggedIn;
     while (loggedIn !== "string") {
         loggedIn = await login();
-        console.log(loggedIn )
+        // console.log(loggedIn )
     }
     supabase = createClient(credentials['supabaseUrl'], credentials['supabaseKey'])
     win.show();
@@ -90,6 +90,7 @@ app.whenReady().then(() => {
     ipcMain.handle('views:series', getSeriesEntries)
     ipcMain.handle('views:date', getDateEntries)
     ipcMain.handle("views:creator", getCreatorEntries);
+    ipcMain.handle("views:seriesExists", seriesExists);
     
     ipcMain.handle('stats:yearly', getYearlyStats)
     ipcMain.handle('stats:monthly', getMonthlyStats)
@@ -185,7 +186,7 @@ async function getCreatorList(_event, role) {
 
 async function getSeriesEntries(_event, seriesName) {
     try{
-        let data=await callRPC("seriesName",{})
+        let data=await callRPC("getseriesentries",{searchseries:seriesName})
         let toRet=formatOutDates(data)
         return toRet
     }
@@ -194,15 +195,43 @@ async function getSeriesEntries(_event, seriesName) {
     }
 }
 
-async function getDateEntries(_event, inDate) {
+async function getDateEntries(_event, dateType) {
     try{
-        let date=formatInDate(inDate)
-        let data=await getdateentries(date)
+        let startDate=dateType[0]
+        let endDate=dateType[1]
+        let type=dateType[2]
+        let start=formatInDate(startDate)
+        let end=formatInDate(endDate)
+        let data;
+        if (type==='month'){
+            data=await getmonthdateentries(start,end)
+        }
+        else{
+            data=await getdateentries(start)
+        }
         let toRet=formatOutDates(data)
         return toRet
     }
     catch(err){
         console.error(err);
+    }
+}
+
+async function seriesExists(_event, seriesName){
+    let count=await supaSeriesExists(seriesName)
+    return count
+}
+
+async function supaSeriesExists(seriesName){
+    let { count, error } = await supabase
+    .from("Series")
+    .select('*', { count: 'exact'})
+    .eq(`SeriesName`,seriesName)
+    if (count!==null){
+        return count
+    }
+    else{
+        console.log(error)
     }
 }
 
@@ -262,13 +291,15 @@ async function getYearlyStats(_event, year) {
     return totals
 }
 
-async function getMonthlyStats(_event, monthYear) {
+async function getMonthlyStats(_event, inDates) {
     let totals=[]
     let data;
-    let year=monthYear[0]
-    let month=monthYear[1]
-    let startmonth=`${year}-${month}-01 00:00:00+00`
-    let endmonth=`${year}-${month}-31 23:59:59+00`
+    let start=inDates[0]
+    let end=inDates[1]
+    let startDate=formatInDate(start)
+    let endDate=formatInDate(end)
+    let startmonth=`${startDate} 00:00:00+00`
+    let endmonth=`${endDate} 23:59:59+00`
     let pubs=await getPubList()
     let args={startmonth:startmonth, endmonth:endmonth}
     data=await callRPC("getmonthtotal",args)
@@ -524,21 +555,23 @@ async function login(_event) {
             let splitted = listItem.split(": ");
             credentials[splitted[0]] = splitted[1];
         });
-        let db = await makeLoginPrompt("Database", "text");
+        let userPass = await makeLoginPrompt("Password", "password");
         response = await fetch(
-            `http://127.0.0.1:${port}/loginThingy?user=${credentials["sql_user"]}&password=${credentials["password"]}&db=${db}&host=${credentials["host"]}&mok_user=${credentials["mok_user"]}&mok_password=${credentials["mok_password"]}`
+            `http://127.0.0.1:${port}/loginThingy?password=${credentials["password"]}&userPass=${userPass}&mok_user=${credentials["mok_user"]}&mok_password=${credentials["mok_password"]}`
+            // `http://127.0.0.1:${port}/loginThingy?user=${credentials["sql_user"]}&password=${credentials["password"]}&db=${db}&host=${credentials["host"]}&mok_user=${credentials["mok_user"]}&mok_password=${credentials["mok_password"]}`
         ); //.catch(console.log("error"))
         data = await response.text();
     } else {
-        let user = await makeLoginPrompt("User", "text");
+        // let user = await makeLoginPrompt("User", "text");
         let mok_user = await makeLoginPrompt("Mokkari User", "text");
-        let host = await makeLoginPrompt("Host", "text");
-        let db = await makeLoginPrompt("Database", "text");
+        let mok_password = await makeLoginPrompt("Mokkari Password", "password");
+        // let host = await makeLoginPrompt("Host", "text");
+        // let db = await makeLoginPrompt("Database", "text");
         let password = await makeLoginPrompt("Password", "password");
         response = await fetch(
-            `http://127.0.0.1:${port}/loginThingy?user=${user}&password=${password}&db=${db}&host=${host}&mok_user=${mok_user}&mok_password=${credentials["mok_password"]}`
+            `http://127.0.0.1:${port}/loginThingy?password=${password}&userPass=${password}&mok_user=${mok_user}&mok_password=${mok_password}`
+            // `http://127.0.0.1:${port}/loginThingy?user=${user}&password=${password}&db=${db}&host=${host}&mok_user=${mok_user}&mok_password=${credentials["mok_password"]}`
         );
-        console.log("asdfasdfasdfasdf");
         data = await response.text();
     }
     return data;
@@ -571,7 +604,6 @@ async function addPublisher(publisher){
 
 function formatOutDates(data){
     data.forEach(function(listItem){
-        console.log(listItem);
         let baseDate=listItem['DateString']
         let splitBaseDate=baseDate.split("T")[0]
         let dateSplit=splitBaseDate.split('-')
@@ -754,6 +786,18 @@ async function getdateentries(date){
     }
 }
 
+async function getmonthdateentries(start,end){
+    let midnight=`${start} 00:00:00+00`
+    let eod=`${end} 23:59:59+00`
+    const { data, error } = await supabase.rpc('getdateentries', {midnight:midnight, eod:eod})
+    if (data!==null){
+        return data
+    }
+    else{
+        console.log(error)
+    }
+}
+
 async function nextpubnum(){
     const { data, error } = await supabase.rpc('nextpubnum')
     if (data!==null){
@@ -900,11 +944,16 @@ async function createSeriesRPC(seriesName, publisher, xmen){
 }
 
 async function createSeriesWithID(seriesName, publisher, xmen, seriesID ){
+    console.log(seriesID)
     const { error } = await supabase
     .from('Series')
     .insert({SeriesName:seriesName, Publisher:publisher, Xmen:xmen, seriesID:seriesID})
     if (error!==null){
         console.log(error)
+    }
+    else{
+        console.log("Added New Series: " + seriesName);
+
     }
 }
 
@@ -923,6 +972,10 @@ async function addEntryRPC(issueName, seriesName, date){
     .insert({IssueName:issueName, SeriesName:seriesName, DateString:date})
     if (error!==null){
         console.log(error)
+    }
+    else{
+        console.log("Added New Issue: " + seriesName + " #" + issueName + " on " + date);
+
     }
 }
 

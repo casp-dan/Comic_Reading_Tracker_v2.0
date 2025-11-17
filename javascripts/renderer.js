@@ -296,7 +296,6 @@ async function makeDropdowns(type) {
         seriesDropViewTab.innerHTML = html;
     } else if (type === "pub") {
         const list = await window.dropdownList.pubList();
-        console.log(list)
         let html = getNamedDropdown(list, 'publisher');
         html += `<option value=\"addPublisher\">Add Publisher</option> \n`;
         publisherDrop.innerHTML = html;
@@ -316,7 +315,6 @@ async function makeDropdowns(type) {
 }
 
 function renderCreatorView(names) {
-    console.log(names)
     const searchCreator = names.filter(function (name) {
         return name[`${roleDrop.value}Name`]
             .toString()
@@ -340,7 +338,6 @@ async function listCreatorViewItems(name,role) {
     clearCreatorTable();
     let issueList = await window.views.creatorEntries([name,role]);
     issueList.forEach(function (item) {
-        console.log(item)
         const html=getSeriesHTML(item['seriesname'],item['issuename'],item['datestring'],item['coverurl']);
         // const html = getDateHTML(item[1], item[0], item[3], item[2]);
         creatorTable.innerHTML += html;
@@ -406,9 +403,11 @@ function renderView(series){
 }
 
 async function makeEntry (entry){
-    console.log(entry.seriesName)
-    console.log(seriesList.includes(entry.seriesName))
-    if (!seriesList.includes(entry.seriesName)){
+    // console.log(entry.seriesName)
+    // console.log(seriesList.includes(entry.seriesName))
+    let exists=await window.views.seriesExists(entry.seriesName)
+    if (exists===0){
+    // if (!seriesList.includes(entry.seriesName)){
         if (entry.publisher===""){
             window.dialogs.error(["No Publisher Selected", "Please Select a Publisher"])
             // console.log("No Publisher Selected", "Please Select a Publisher")
@@ -417,7 +416,7 @@ async function makeEntry (entry){
         else{
             // getSeriesID(entry.seriesName,entry.publisher,entry.xmen);
             // window.secondWindow.selectSeries([entry.seriesName,entry.publisher,entry.xmen])
-            window.entries.createSeries([entry.seriesName,entry.publisher,entry.xmen]);
+            await window.entries.createSeries([entry.seriesName,entry.publisher,entry.xmen]);
             addBook(entry,entry.seriesName);
             clearFields();
             return true;
@@ -437,13 +436,13 @@ searchSeriesButton.addEventListener('click',async function() {
     }
     else{
         let seriesName=await window.secondWindow.selectSeries([seriesField.value,publisherDrop.value])
-        console.log(seriesName)
+        // console.log(seriesName)
     }
 })
 
 async function getSeriesID(seriesName,publisher,xmen){
     let seriesID=await window.secondWindow.selectSeries([seriesName,publisher,xmen])
-    console.log(seriesID)
+    // console.log(seriesID)
 }
 
 async function addBook(entry,series){
@@ -464,7 +463,7 @@ async function addBook(entry,series){
             const curSeries=series;
             const curXmenAdj=entry.xmenAdj;
             const curDate=date.toDateTimeString();
-            console.log([curIssue,curSeries,curXmenAdj,curDate])
+            // console.log([curIssue,curSeries,curXmenAdj,curDate])
             await window.entries.addIssue([curIssue,curSeries,curXmenAdj,curDate]);
         }
         window.dialogs.dialog(["Finished", `All entries for ${series} completed`])
@@ -491,7 +490,7 @@ const getSeriesHTML = (series,issue,date,cover) => {
     outSeries=outSeries.replaceAll(")]","")
     sendSeries=outSeries.replaceAll("\'", "///")
     issue=issue.replaceAll("///","\'")
-    if (cover===undefined){
+    if (cover===null){
         cover="../assets/funnyCover.jpg"
     }
     return `<tr class="normalRow">
@@ -543,14 +542,17 @@ async function listDateViewItems(){
     let issueList;
     if (monthBox.checked){
         let searchDate=dateFieldViewTab.value.toString();
-        searchDate=searchDate.replaceAll('/','//')
-        issueList=await window.views.dateEntries(searchDate)
+        // searchDate=searchDate.replaceAll('/','//')
+        let splitted=searchDate.split('/')
+        let date=dateFactory(`${splitted[0]}/1/${splitted[1]}`)
+        let end=date.getEndDate()
+        issueList=await window.views.dateEntries([date.toString(), end,'month'])
         createDateViewTable(issueList, issueCount)
     }
     else{
         const searchDate=dateFactory(dateFieldViewTab.value.toString())
         if (searchDate.validate()){
-            issueList=await window.views.dateEntries(searchDate.toString())
+            issueList=await window.views.dateEntries([searchDate.toString(),"", 'day'])
             createDateViewTable(issueList, issueCount)
         }
         else{
@@ -627,7 +629,12 @@ async function getMonthlyStats(year,month){
     else{
         monthNum=`${num}`;
     }
-    let totals=await window.stats.monthlyStats([year.toString(),monthNum])
+    let splitted=year.toString().split("")
+    let shortYear=`${splitted[2]}${splitted[3]}`
+    let date=dateFactory(`${monthNum}/1/${shortYear}`)
+    let end=date.getEndDate()
+    let totals=await window.stats.monthlyStats([date.toString(), end])
+    // let totals=await window.stats.monthlyStats([year.toString(),monthNum, date, end])
     let pubList= await window.dropdownList.pubList()
     setValues(pubList,totals)
 }
@@ -745,6 +752,23 @@ const dateFactory=(dateString, inTime) => {
 
         toString(){
             return this._month.toString()+"/"+this._day.toString()+"/"+this._year.toString()
+        },
+
+        getEndDate(){
+            if (this.month==2){
+                if (this.year%4==0){
+                    return `${this.month}/29/${this.year}`
+                }
+                else{
+                    return `${this.month}/28/${this.year}`
+                }
+            }
+            else if (this.THIRTYONE.includes(this.month)){
+                return `${this.month}/31/${this.year}`
+            }
+            else if (this.THIRTY.includes(this.month)){
+                return `${this.month}/30/${this.year}`
+            }
         },
 
         toSearchString(){
