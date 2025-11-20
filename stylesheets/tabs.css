@@ -393,9 +393,12 @@ html>body tbody.scrollContent td + td + td {
   /* padding-right:0 20px; */
 }
 
-/* .searchButton{
-  height:25px;
-} */
+.deleteButton{
+  background-color: red;
+  color: white;
+  width: 70px;
+  height: 70px;
+}
 
 
 #snapshotLabel{

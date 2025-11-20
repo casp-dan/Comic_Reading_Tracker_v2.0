@@ -4,48 +4,55 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const prompt = require('electron-prompt');
-const electronSquirrelStartup = require('electron-squirrel-startup');
-const port=5000
+const electronDialog = require('electron').dialog;const electronSquirrelStartup = require('electron-squirrel-startup');
+const { get } = require('http');
+
+
+
+const port=5001
 let seriesSelectList;
 let currentSeriesID=null;
 let seriesSelectWindow;
 let issueInfoWindow;
+let issueEditWindow;
 let win;
 let objson="";
 let credentials={};
 let supabase;
+let dayTimeEdit;
 
 async function initialize () {
     
-    // var python = require('child_process').spawn('python3', ['./python/app.py']);
-    // python.stdout.on('data', function (data) {
-    //     console.log("data: ", data.toString('utf8'))
-    // });
-    // python.stderr.on('data', (data) => {
-    //     console.log(`stderr: ${data}`);
-    // });
+    var python = require('child_process').spawn('python3', ['./python/app.py']);
+    python.stdout.on('data', function (data) {
+        console.log("data: ", data.toString('utf8'))
+    });
+    python.stderr.on('data', (data) => {
+        console.log(`stderr: ${data}`);
+    });
 
-    let python;
-    python = path.join(process.cwd(), 'app.exe')
-    var execfile = require("child_process").execFile;
-    execfile(
-        python, 
-        {
-            windowsHide: true,
-        },
-        (err, stdout, stderr) => {
-            if (err) {
-                console.log(err);
-            }
-            if (stdout) {
-                console.log(stdout);
-            }
-            if (stderr) {
-                console.log(stderr);
-            }
-        }
-    )
+    // let python;
+    // python = path.join(process.cwd(), 'app.exe')
+    // var execfile = require("child_process").execFile;
+    // execfile(
+    //     python, 
+    //     {
+    //         windowsHide: true,
+    //     },
+    //     (err, stdout, stderr) => {
+    //         if (err) {
+    //             console.log(err);
+    //         }
+    //         if (stdout) {
+    //             console.log(stdout);
+    //         }
+    //         if (stderr) {
+    //             console.log(stderr);
+    //         }
+    //     }
+    // )
     
+
     doLogin()
 
 
@@ -112,11 +119,20 @@ app.whenReady().then(() => {
     ipcMain.handle("thirdWindow:getInfo", getInfo)
     ipcMain.handle("thirdWindow:showInfo", showInfo)
     
+    ipcMain.handle("fourthWindow:getTime", getTime)
+    ipcMain.handle("fourthWindow:showEdit", showEdit)
+    
     ipcMain.handle("window2:seriesList", createSeriesSelect)
     ipcMain.handle("window2:setSeriesID", setSeriesID)
     ipcMain.handle("window2:closeWindow", closeSeriesSelect)
     
     ipcMain.handle("window3:getJSON", getObjJSON)
+
+    ipcMain.handle("window4:getDayTime", getDayTimeObj)
+    ipcMain.handle("window4:editEntry", editEntry)
+    ipcMain.handle("window4:deleteEntry", deleteEntry)
+
+
     ipcMain.on('counter-value', (_event, value) => {
     
         return value
@@ -385,6 +401,76 @@ async function showInfo(_event){
     issueInfoWindow=makeIssueInfoPopup();
 }
 
+async function showEdit(_event){
+    issueEditWindow=makeIssueEditPopup();
+}
+
+async function editEntry(_event, values){
+    let day=values[0]
+    let time=values[1]
+    let issue=values[2]
+    let series=values[3]
+    let origDate=values[4]
+    let dateTime=`${day} ${time}`
+    let confirm=await makeConfirmPrompt('Edit Entry','Are you sure you want to edit this entry?')
+    if (confirm){
+        const { error } = await supabase  
+        .from('Entry')  
+        .update({ "DateString": dateTime })  
+        .eq('IssueName',issue)
+        .eq('SeriesName',series)
+        .eq('DateString',origDate)
+
+        issueEditWindow.close()
+    }
+}
+
+async function deleteEntry(_event, values){
+    let issue=values[0]
+    let series=values[1]
+    let dateTime=values[2]
+    let confirm=await makeConfirmPrompt('Delete Entry','Are you sure you want to delete this entry?')
+    if (confirm){
+        const response = await supabase  
+        .from('Entry')  
+        .delete()  
+        .eq('IssueName',issue)
+        .eq('SeriesName',series)
+        .eq('DateString',dateTime)
+
+
+        issueEditWindow.close()
+        issueInfoWindow.close()
+
+    }
+    else{
+        console.log('no')
+    }
+}
+
+async function getTime(_event,values){
+    let issue=values[0]
+    let series=values[1]
+    let inDate=values[2]
+    let date=formatInDate(inDate)
+    let midnight=`${date} 00:00:00`
+    let eod=`${date} 23:59:59`
+    let { data, error } = await supabase
+    .from("Entry")
+    .select()
+    .eq('IssueName',issue)
+    .eq('SeriesName',series)
+    .gte("DateString", midnight)
+    .lte("DateString", eod)
+    if (data!==null){
+        dayTimeEdit=data[0]
+        return data
+    }
+    else{
+        console.log(error)
+    }
+}
+
 async function createSeries(_event, values){
     let seriesName=values[0]
     let publisher=values[1]
@@ -467,6 +553,7 @@ async function addIssue(_event, values){
 async function getInfo(_event, values){
     let issue=values[0]
     let series=values[1]
+    let date=values[2]
     let names={}
     let roles=["Color","Inker","Penciller","Writer","Artist"]
     let myResult=await getRoleBools(issue,series,roles)
@@ -486,6 +573,7 @@ async function getInfo(_event, values){
     names['URL']=urlData[0]['coverURL']
     names["issue"]=issue
     names["series"]=series
+    names["date"]=date
     objson=names;
     return names;
 }
@@ -597,6 +685,29 @@ async function makeLoginPrompt(cycle,type){
     return credential
 }
 
+async function makeConfirmPrompt(title,message){
+    let confirm=await electronDialog.showMessageBox(issueEditWindow, {
+        'type': 'question',
+        'title': `${title}`,
+        'message': `${message}`,
+        'buttons': [
+            'No',
+            'Yes'
+        ]
+    })
+    return confirm['response']
+    // let credential=await prompt({
+    //     title: 'Login',
+    //     label: `${cycle}:`,
+    //     inputAttrs: {
+    //         type: `${type}`,
+    //         required: true
+    //     },
+    //     type: 'input'
+    // })
+    // return credential
+}
+
 async function addPublisher(publisher){
     let data=await nextpubnum()
     await createPublisher(publisher,data)
@@ -691,12 +802,31 @@ function makeIssueInfoPopup(){
     return issueInfoWindow;
 }
 
+function makeIssueEditPopup(){
+    issueEditWindow = new BrowserWindow({
+        width: 500,
+        height: 500,
+        webPreferences: {
+            preload: path.join(__dirname, './preload4.js'),
+            nodeIntegration: true
+        }
+    })
+
+    issueEditWindow.loadFile("html/issueEdit.html")
+
+    return issueEditWindow;
+}
+
 function createSeriesSelect(){
     return seriesSelectList;
 }
 
 function getObjJSON(){
     return objson;
+}
+
+function getDayTimeObj(){
+    return dayTimeEdit;
 }
 
 function setSeriesID(_event, value){

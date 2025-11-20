@@ -1,6 +1,6 @@
 {
-  "name": "elecomics",
-  "productName": "elecomics",
+  "name": "Comic App",
+  "productName": "Comic App",
   "version": "1.0.0",
   "description": "attempting to create a js executable to search for comic books",
   "main": "javascripts/index.js",
@@ -28,6 +28,8 @@
     "comicbooks-api": "^0.1.5",
     "electron-prompt": "^1.7.0",
     "electron-squirrel-startup": "^1.0.1",
-    "hermitpurple": "^0.2.0"
+    "hermitpurple": "^0.2.0",
+    "jwt-decode": "^4.0.0",
+    "keytar": "^7.9.0"
   }
 }

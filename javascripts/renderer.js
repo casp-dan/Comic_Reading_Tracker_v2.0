@@ -496,7 +496,7 @@ const getSeriesHTML = (series,issue,date,cover) => {
     return `<tr class="normalRow">
                 <td><img src="${cover}"  width="150.08"></img></th></td>
                 <td>${outSeries}</td>
-                <td><a onclick="getIssueInfo(\'${issue}\',\'${sendSeries}\')">${issue}</a></td>
+                <td><a onclick="getIssueInfo(\'${issue}\',\'${sendSeries}\',\'${date}\')">${issue}</a></td>
                 <td>${date.toString()}</td>
                 </tr> \n`
 }
@@ -513,7 +513,7 @@ const getDateHTML = (series,issue,date,cover) => {
     return `<tr class="normalRow">
                 <td><img src="${cover}"  width="150.08"></img></th></td>
                 <td>${outSeries}</td>
-                <td><a onclick="getIssueInfo(\'${issue}\',\'${sendSeries}\')">${issue}</a></td>
+                <td><a onclick="getIssueInfo(\'${issue}\',\'${sendSeries}\',\'${date}\')">${issue}</a></td>
                 <td>${date.toString()}</td>
                 </tr> \n`
 }
@@ -710,9 +710,10 @@ function getToday(){
     return `${month}/${day}/${year}`
 }
 
-async function getIssueInfo(issue, series){
+async function getIssueInfo(issue, series,date){
     series=series.replaceAll("///","\'")
-    await window.thirdWindow.getInfo([issue,series])
+    console.log(date)
+    await window.thirdWindow.getInfo([issue,series,date])
     // console.log(pubList)
     await window.thirdWindow.showInfo()
 }

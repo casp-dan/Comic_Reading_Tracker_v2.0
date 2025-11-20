@@ -4,7 +4,7 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
-    icon: 'C:/Users/danie/Desktop/other_documents/playground/eleComics/assets/app.ico' // no file extension required
+    icon: 'C:/Users/danie/Desktop/Comic_Reading_Tracker_v2.0/assets/app.ico' // no file extension required
   },
   rebuildConfig: {},
   makers: [
