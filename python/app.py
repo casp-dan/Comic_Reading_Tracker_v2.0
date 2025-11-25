@@ -7,7 +7,7 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 CORS(app)
 
-port_num=5001
+port_num=5000
 app.config["mok_user"]=""
 app.config["mok_pass"]=""
 mysql = MySQL()

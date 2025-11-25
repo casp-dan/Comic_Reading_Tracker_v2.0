@@ -46,7 +46,7 @@ const snapshotStart = document.querySelector("#snapshotStart");
 const xmenCheckBox = document.querySelector("#xmenCheckBox");
 const xmenAdjCheckBox = document.querySelector("#xmenAdjCheckBox");
 const snapshotEnd = document.querySelector("#snapshotEnd");
-const logoutButton = document.querySelector("#logoutButton");
+// const logoutButton = document.querySelector("#logoutButton");
 const today = "";
 
 
@@ -227,9 +227,9 @@ percentBox.addEventListener('change', function() {
 
 snapshotBox.addEventListener('change', handleSnapshot);
 
-logoutButton.addEventListener('click', async function() {
-    await window.process.logout();
-})
+// logoutButton.addEventListener('click', async function() {
+//     await window.process.logout();
+// })
 
 
 creatorDrop.addEventListener("change", function () {
@@ -717,7 +717,6 @@ async function getIssueInfo(issue, series,date){
     // console.log(pubList)
     await window.thirdWindow.showInfo()
 }
-
 
 const dateFactory=(dateString, inTime) => {
     return {

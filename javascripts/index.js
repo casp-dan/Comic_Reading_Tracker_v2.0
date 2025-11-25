@@ -1,15 +1,17 @@
-const { app, BrowserWindow, ipcMain, dialog} = require('electron/main')
-const { createClient } = require('@supabase/supabase-js')
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
-const prompt = require('electron-prompt');
-const electronDialog = require('electron').dialog;const electronSquirrelStartup = require('electron-squirrel-startup');
 const { get } = require('http');
+const popups=require('./popups')
+const statsMethods=require('./statsMethods')
+const userJSON = require('../userInfo.json')
+const electronDialog = require('electron').dialog;
+const supabaseMethods=require('./supabaseMethods')
+const electronSquirrelStartup = require('electron-squirrel-startup');
+const { app, BrowserWindow, ipcMain, dialog} = require('electron/main')
 
 
-
-const port=5001
+const port=5000
 let seriesSelectList;
 let currentSeriesID=null;
 let seriesSelectWindow;
@@ -17,9 +19,8 @@ let issueInfoWindow;
 let issueEditWindow;
 let win;
 let objson="";
-let credentials={};
-let supabase;
 let dayTimeEdit;
+let userInfo;
 
 async function initialize () {
     
@@ -63,9 +64,8 @@ async function doLogin() {
     let loggedIn;
     while (loggedIn !== "string") {
         loggedIn = await login();
-        // console.log(loggedIn )
     }
-    supabase = createClient(credentials['supabaseUrl'], credentials['supabaseKey'])
+    supabaseMethods.login(userInfo['supabaseUrl'], userInfo['supabaseKey'])
     win.show();
 }
 
@@ -76,7 +76,7 @@ async function mainWindow(){
         height: 600,
         show: false, 
         webPreferences: {
-            preload: path.join(__dirname, './preload.js'),
+            preload: path.join(__dirname, './preloads/preload.js'),
             nodeIntegration: true
         }
     })
@@ -106,7 +106,6 @@ app.whenReady().then(() => {
     
     ipcMain.handle("entries:createSeries", createSeries)
     ipcMain.handle("entries:getLastDateTime", getLastDateTime)
-    ipcMain.handle("entries:entryExists", entryExists);
     ipcMain.handle("entries:addIssue", addIssue)
     
     ipcMain.handle("dialogs:errorMessage", errorMessage)
@@ -132,7 +131,6 @@ app.whenReady().then(() => {
     ipcMain.handle("window4:editEntry", editEntry)
     ipcMain.handle("window4:deleteEntry", deleteEntry)
 
-
     ipcMain.on('counter-value', (_event, value) => {
     
         return value
@@ -142,7 +140,6 @@ app.whenReady().then(() => {
 })
 
 app.on("window-all-closed", () => closeApp)
-
 
 function closeApp(){
     if (process.platform !== "darwin") {
@@ -159,50 +156,37 @@ function closeApp(){
     }
 }
 
-async function getSeriesList(test) {
-    let { data, error } = await supabase
-        .from('Series')
-        .select("SeriesName")
-        .order('SeriesName', { ascending: true })
-    if (data!==null){
-        return data
-    }
-    else{
-        console.log(error)
-    }
+async function getYearlyStats(_event, year){
+    return await statsMethods.getYearlyStats(year)
 }
 
-async function getPubList(test) {
-    try{
-        let { data, error } = await supabase
-            .from('publisher')
-            .select("publisher")
-            .order('list_order', { ascending: true })
-        
-        return data
-    }
-    catch (err){
-        console.error(err.response.data); 
-    }
+async function getMonthlyStats(_event, inDates){
+    return await statsMethods.getMonthlyStats(inDates)
+}
+
+async function getOverviewStats(_event){
+    return await statsMethods.getOverviewStats()
+}
+
+async function getSnapshotStats(_event, startEnd){
+    return await statsMethods.getSnapshotStats(startEnd)
+}
+
+async function getSeriesList() {
+    return await supabaseMethods.getSeriesList()
+}
+
+async function getPubList(_test) {
+    return await supabaseMethods.getPubList()
 }
 
 async function getCreatorList(_event, role) {
-    try{
-        let { data, error } = await supabase
-            .from(`${role}`)
-            .select(`${role}Name`)
-            .order(`${role}Name`, { ascending: true })
-        
-        return data
-    }
-    catch (err){
-        console.error(err.response.data); 
-    }
+    return await supabaseMethods.getCreatorList(role)
 }
 
 async function getSeriesEntries(_event, seriesName) {
     try{
-        let data=await callRPC("getseriesentries",{searchseries:seriesName})
+        let data=await supabaseMethods.callRPC("getseriesentries",{searchseries:seriesName})
         let toRet=formatOutDates(data)
         return toRet
     }
@@ -220,10 +204,10 @@ async function getDateEntries(_event, dateType) {
         let end=formatInDate(endDate)
         let data;
         if (type==='month'){
-            data=await getmonthdateentries(start,end)
+            data=await supabaseMethods.getmonthdateentries(start,end)
         }
         else{
-            data=await getdateentries(start)
+            data=await supabaseMethods.getdateentries(start)
         }
         let toRet=formatOutDates(data)
         return toRet
@@ -234,153 +218,21 @@ async function getDateEntries(_event, dateType) {
 }
 
 async function seriesExists(_event, seriesName){
-    let count=await supaSeriesExists(seriesName)
+    let count=await supabaseMethods.seriesExists(seriesName)
     return count
-}
-
-async function supaSeriesExists(seriesName){
-    let { count, error } = await supabase
-    .from("Series")
-    .select('*', { count: 'exact'})
-    .eq(`SeriesName`,seriesName)
-    if (count!==null){
-        return count
-    }
-    else{
-        console.log(error)
-    }
 }
 
 async function getCreatorEntries(_event, nameRole) {
     try {
         let name=nameRole[0]
-        let role=nameRole[1]
+        let role=nameRole[1].toLowerCase()
         let toRet
-        switch (role) {
-            case 'Artist':
-                data=await callRPC("getartistentries",{creatorname:name})
-                toRet=formatCreatorDates(data)
-                return toRet
-            case 'Colorist':
-                data=await callRPC("getcolorentries",{creatorname:name})
-                toRet=formatCreatorDates(data)
-                return toRet
-            case 'Inker':
-                data=await callRPC("getinkerentries",{creatorname:name})
-                toRet=formatCreatorDates(data)
-                return toRet
-            case 'Penciller':
-                data=await callRPC("getpencillerentries",{creatorname:name})
-                toRet=formatCreatorDates(data)
-                return toRet
-            case 'Writer':
-                data=await callRPC("getwriterentries",{creatorname:name})
-                toRet=formatCreatorDates(data)
-                return toRet
-        }
+        data=await supabaseMethods.callRPC(`get${role}entries`,{creatorname:name})
+        toRet=formatCreatorDates(data)
+        return toRet
     } catch (err) {
         console.error(err);
     }
-}
-
-async function getYearlyStats(_event, year) {
-    let totals=[]
-    let newyear=`${year}-01-01 00:00:00+00`
-    let nye=`${year}-12-31 23:59:59+00`
-    let data;
-    let pubs=await getPubList()
-    let args={newyear:newyear, nye:nye}
-    data=await callRPC("getyeartotal",args)
-    totals.push(data[0])
-    for (const publisher of pubs) {
-        let pubArgs={searchpub:publisher['publisher'], newyear:newyear, nye:nye}
-        data=await callRPC('getyearpub',pubArgs)
-        totals.push(data[0])
-    }
-    data=await callRPC("getyearxmen",args)
-    let xmen=data[0]
-    data=await callRPC("getyearxmenadj",args)
-    xmen+=data[0]
-    totals.push(xmen)
-    data=await callRPC("getyearseries",args)
-    totals.push(data[0])
-    return totals
-}
-
-async function getMonthlyStats(_event, inDates) {
-    let totals=[]
-    let data;
-    let start=inDates[0]
-    let end=inDates[1]
-    let startDate=formatInDate(start)
-    let endDate=formatInDate(end)
-    let startmonth=`${startDate} 00:00:00+00`
-    let endmonth=`${endDate} 23:59:59+00`
-    let pubs=await getPubList()
-    let args={startmonth:startmonth, endmonth:endmonth}
-    data=await callRPC("getmonthtotal",args)
-    totals.push(data[0])
-    for (const publisher of pubs) {
-        let pubArgs={searchpub:publisher['publisher'], startmonth:startmonth, endmonth:endmonth}
-        data=await callRPC("getmonthpub",pubArgs)
-        totals.push(data[0])
-    }
-    data=await callRPC("getmonthxmen",args)
-    let xmen=data[0]
-    data=await callRPC("getmonthxmenadj",args)
-    xmen+=data[0]
-    totals.push(xmen)
-    data=await callRPC("getmonthseries",args)
-    totals.push(data[0])
-    return totals
-}
-
-async function getOverviewStats(_event) {
-    let totals=[]
-    let data;
-    let pubs=await getPubList()
-    let args={}
-    data=await callRPC("getovertotal",args)
-    totals.push(data[0])
-    for (const publisher of pubs) {
-        let pubArgs={searchpub:publisher['publisher']}
-        let data=await callRPC("getoverpub",pubArgs)
-        totals.push(data[0])
-    }
-    data=await callRPC("getoverxmen",args)
-    let xmen=data[0]
-    data=await callRPC("getoverxmenadj",args)
-    xmen+=data[0]
-    totals.push(xmen)
-    data=await callRPC("getoverseries",args)
-    totals.push(data[0])
-    return totals
-}
-
-async function getSnapshotStats(_event, startEnd) {
-    let start=startEnd[0]
-    let end=startEnd[1]
-    let midnight=`${start} 00:00:00+00`
-    let eod=`${end} 23:59:59+00`
-    let totals=[]
-    let data;
-    let pubs=await getPubList()
-    let args={midnight:midnight, eod:eod}
-    data=await callRPC("getsnapshottotal",args)
-    totals.push(data[0])
-    for (const publisher of pubs) {
-        let pubArgs={searchpub:publisher['publisher'], midnight:midnight, eod:eod}
-        data=await callRPC("getsnapshotpub",pubArgs)
-        totals.push(data[0])
-    }
-    data=await callRPC("getsnapshotxmen",args)
-    let xmen=data[0]
-    data=await callRPC("getsnapshotxmenadj",args)
-    xmen+=data[0]
-    totals.push(xmen)
-    data=await callRPC("getsnapshotseries",args)
-    totals.push(data[0])
-    return totals
 }
 
 async function fetchSeriesList(_event, values){
@@ -394,15 +246,15 @@ async function fetchSeriesList(_event, values){
         startYear=seriesName.split("(")[1].split(")")[0]
     }
     await makeSeriesSelectList(searchTerm,publisher,startYear)
-    seriesSelectWindow=makeSeriesSelectPopup();
+    seriesSelectWindow=popups.makeSeriesSelectPopup();
 }
 
 async function showInfo(_event){
-    issueInfoWindow=makeIssueInfoPopup();
+    issueInfoWindow=popups.makeIssueInfoPopup();
 }
 
 async function showEdit(_event){
-    issueEditWindow=makeIssueEditPopup();
+    issueEditWindow=popups.makeIssueEditPopup();
 }
 
 async function editEntry(_event, values){
@@ -412,15 +264,9 @@ async function editEntry(_event, values){
     let series=values[3]
     let origDate=values[4]
     let dateTime=`${day} ${time}`
-    let confirm=await makeConfirmPrompt('Edit Entry','Are you sure you want to edit this entry?')
+    let confirm=await popups.makeConfirmPrompt('Edit Entry','Are you sure you want to edit this entry?')
     if (confirm){
-        const { error } = await supabase  
-        .from('Entry')  
-        .update({ "DateString": dateTime })  
-        .eq('IssueName',issue)
-        .eq('SeriesName',series)
-        .eq('DateString',origDate)
-
+        await supabaseMethods.editEntry(issue,series,dateTime,origDate)
         issueEditWindow.close()
     }
 }
@@ -429,19 +275,11 @@ async function deleteEntry(_event, values){
     let issue=values[0]
     let series=values[1]
     let dateTime=values[2]
-    let confirm=await makeConfirmPrompt('Delete Entry','Are you sure you want to delete this entry?')
+    let confirm=await popups.makeConfirmPrompt('Delete Entry','Are you sure you want to delete this entry?')
     if (confirm){
-        const response = await supabase  
-        .from('Entry')  
-        .delete()  
-        .eq('IssueName',issue)
-        .eq('SeriesName',series)
-        .eq('DateString',dateTime)
-
-
+        await supabaseMethods.deleteEntry(issue,series,dateTime)
         issueEditWindow.close()
         issueInfoWindow.close()
-
     }
     else{
         console.log('no')
@@ -455,20 +293,7 @@ async function getTime(_event,values){
     let date=formatInDate(inDate)
     let midnight=`${date} 00:00:00`
     let eod=`${date} 23:59:59`
-    let { data, error } = await supabase
-    .from("Entry")
-    .select()
-    .eq('IssueName',issue)
-    .eq('SeriesName',series)
-    .gte("DateString", midnight)
-    .lte("DateString", eod)
-    if (data!==null){
-        dayTimeEdit=data[0]
-        return data
-    }
-    else{
-        console.log(error)
-    }
+    return await supabaseMethods.getLastDateTime(issue,series,midnight,eod)
 }
 
 async function createSeries(_event, values){
@@ -476,10 +301,10 @@ async function createSeries(_event, values){
     let publisher=values[1]
     let xmen=values[2]
     if (currentSeriesID===null){
-        await createSeriesRPC(seriesName, publisher, xmen)
+        await supabaseMethods.createSeriesRPC(seriesName, publisher, xmen)
     }
     else{
-        await createSeriesWithID(seriesName, publisher, xmen, currentSeriesID )
+        await supabaseMethods.createSeriesWithID(seriesName, publisher, xmen, currentSeriesID )
     }
     console.log(`Series created: ${seriesName}`)
     currentSeriesID=undefined
@@ -496,15 +321,7 @@ async function makeSeriesSelectList(searchTerm,publisher,startYear){
 }
 
 async function getLastDateTime(_event, dateString){
-    let midnight=`${dateString} 00:00:00+00`
-    let eod=`${dateString} 23:59:59+00`
-    const { data, error } = await supabase.rpc('getlastdatetime', {midnight:midnight, eod:eod})
-    if (data!==null){
-        return data
-    }
-    else{
-        console.log(error)
-    }
+    return await supabaseMethods.getLastDateTime(dateString)
 }
 
 async function addIssue(_event, values){
@@ -515,21 +332,21 @@ async function addIssue(_event, values){
     let data;
     let newIssue;
     let day=date.split(' ')[0]
-    data=await issueExists(series,issue)
+    data=await supabaseMethods.issueExists(series,issue)
     if (data===0){
         newIssue=true
-        await addIssueRPC(issue,series,xmenAdj)
+        await supabaseMethods.addIssueRPC(issue,series,xmenAdj)
     }
-    data=await entryExists(series,issue,day)
+    data=await supabaseMethods.entryExists(series,issue,day)
     if (data===0){
         date+="+00"
-        await addEntryRPC(issue,series,date)
+        await supabaseMethods.addEntryRPC(issue,series,date)
     }
     if (newIssue){
         let seriesID;
         let issueData=[]
-        seriesID=await getSeriesIDRPC(series)
-        let publisher=await getSeriesPubRPC(series)
+        seriesID=await supabaseMethods.getSeriesIDRPC(series)
+        let publisher=await supabaseMethods.getSeriesPubRPC(series)
         let startYear=series.split("(")[1].split(")")[0]
 
         if (seriesID===undefined){
@@ -540,12 +357,12 @@ async function addIssue(_event, values){
             const response2=await fetch(`http://127.0.0.1:${port}/issueAPI?issue=${issue}&seriesID=${seriesID}`);
             const data2=await response2.json();
             if (data2["coverURL"]!==''){
-                await updateIssueCover(series,issue,data2['coverURL'])
+                await supabaseMethods.updateIssueCover(series,issue,data2['coverURL'])
             }
             if (data2["issueID"]!==''){
-                await updateIssueID(series,issue,data2['issueID'])
+                await supabaseMethods.updateIssueID(series,issue,data2['issueID'])
             }
-            await updateCreators(issue,series,data2)
+            await supabaseMethods.updateCreators(issue,series,data2)
         }
     }
 }
@@ -556,11 +373,11 @@ async function getInfo(_event, values){
     let date=values[2]
     let names={}
     let roles=["Color","Inker","Penciller","Writer","Artist"]
-    let myResult=await getRoleBools(issue,series,roles)
+    let myResult=await supabaseMethods.getRoleBools(issue,series,roles)
     let isRole=myResult[0]
     for (const role of roles) {
         if (isRole[role]===true){
-            let creatorNames=await getCreator(role,issue,series)
+            let creatorNames=await supabaseMethods.getCreator(role,issue,series)
             if (creatorNames.length!==0){
                 names[role]=[]
                 creatorNames.forEach(function(creator){
@@ -569,7 +386,7 @@ async function getInfo(_event, values){
             }
         }
     }
-    let urlData=await getCoverURL(issue,series)
+    let urlData=await supabaseMethods.getCoverURL(issue,series)
     names['URL']=urlData[0]['coverURL']
     names["issue"]=issue
     names["series"]=series
@@ -579,89 +396,51 @@ async function getInfo(_event, values){
 }
 
 function errorMessage(_event, msgTtl){
-    let title=msgTtl[0]
-    let message=msgTtl[1]
-    dialog.showErrorBox(title, message)
+    popups.errorMessage(msgTtl)
 }
 
 function dialogMessage(_event, msgTtl){
-    let title=msgTtl[0]
-    let dialogMessage=msgTtl[1]
-    dialog.showMessageBox(win, {
-        type: 'info',
-        title: title,
-        message: dialogMessage
-    })
+    popups.dialogMessage(msgTtl)
 }
 
 function publisherPrompt(){
-    prompt({
-        title: 'Add Publisher',
-        label: 'Publisher:',
-        inputAttrs: {
-            type: 'text',
-            required: true
-        },
-        type: 'input'
-    })
-    .then((r) => {
-        if(r === null) {
-            console.log('user cancelled');
-        } else {
-            addPublisher(r)
-        }
-    })
-    .catch(console.error);
+    popups.publisherPrompt()
 }
 
 async function snapshotPrompts(){
-    let start=await makeSnapPrompt("Start")
-    let end=await makeSnapPrompt("End")
+    let start=await popups.makeSnapPrompt("Start")
+    let end=await popups.makeSnapPrompt("End")
     return [start,end]
-}
-
-async function makeSnapPrompt(cycle){
-    let date=await prompt({
-        title: 'Snapshot',
-        label: `${cycle} Date:`,
-        inputAttrs: {
-            type: 'text',
-            required: true
-        },
-        type: 'input'
-    })
-    return date
 }
 
 async function login(_event) {
     let response;
     let data;
-    if (fs.existsSync("userInfo.txt")) {
-        let readInfo = fs.readFileSync(`userInfo.txt`).toString();
-        readInfo = readInfo.split("\n");
-        readInfo.forEach(function (listItem) {
-            let splitted = listItem.split(": ");
-            credentials[splitted[0]] = splitted[1];
-        });
-        let userPass = await makeLoginPrompt("Password", "password");
-        response = await fetch(
-            `http://127.0.0.1:${port}/loginThingy?password=${credentials["password"]}&userPass=${userPass}&mok_user=${credentials["mok_user"]}&mok_password=${credentials["mok_password"]}`
-            // `http://127.0.0.1:${port}/loginThingy?user=${credentials["sql_user"]}&password=${credentials["password"]}&db=${db}&host=${credentials["host"]}&mok_user=${credentials["mok_user"]}&mok_password=${credentials["mok_password"]}`
-        ); //.catch(console.log("error"))
-        data = await response.text();
-    } else {
-        // let user = await makeLoginPrompt("User", "text");
-        let mok_user = await makeLoginPrompt("Mokkari User", "text");
-        let mok_password = await makeLoginPrompt("Mokkari Password", "password");
-        // let host = await makeLoginPrompt("Host", "text");
-        // let db = await makeLoginPrompt("Database", "text");
-        let password = await makeLoginPrompt("Password", "password");
-        response = await fetch(
-            `http://127.0.0.1:${port}/loginThingy?password=${password}&userPass=${password}&mok_user=${mok_user}&mok_password=${mok_password}`
-            // `http://127.0.0.1:${port}/loginThingy?user=${user}&password=${password}&db=${db}&host=${host}&mok_user=${mok_user}&mok_password=${credentials["mok_password"]}`
-        );
-        data = await response.text();
-    }
+    userInfo=userJSON
+    userInfo['userPass']=undefined
+    creds=["mok_user", "mok_password", "password", "supabaseUrl", "supabaseKey"]
+    creds.forEach(async function (listItem) {
+        if (userInfo[listItem]===undefined){
+            if (listItem==='mok_password'){
+                userInfo[listItem]=await popups.makeLoginPrompt(listItem, "password");
+            }
+            else if (listItem==='password'){
+                let entered=await popups.makeLoginPrompt("Password", "password");
+                userInfo['userPass']=entered
+                userInfo['password']=entered
+            }
+            else{
+                userInfo[listItem]=await popups.makeLoginPrompt(listItem, "text");
+            }
+        }
+    });
+    if (userInfo['userPass']===undefined){
+        userInfo['userPass']=await popups.makeLoginPrompt("Password", "password");
+    } 
+    response = await fetch(
+        `http://127.0.0.1:${port}/loginThingy?password=${userInfo["password"]}&userPass=${userInfo["userPass"]}&mok_user=${userInfo["mok_user"]}&mok_password=${userInfo["mok_password"]}`
+    ); 
+    data = await response.text();
     return data;
 }
 
@@ -670,47 +449,6 @@ async function logout(){
     win=null
     await fetch(`http://127.0.0.1:${port}/logout`);
     doLogin()
-}
-
-async function makeLoginPrompt(cycle,type){
-    let credential=await prompt({
-        title: 'Login',
-        label: `${cycle}:`,
-        inputAttrs: {
-            type: `${type}`,
-            required: true
-        },
-        type: 'input'
-    })
-    return credential
-}
-
-async function makeConfirmPrompt(title,message){
-    let confirm=await electronDialog.showMessageBox(issueEditWindow, {
-        'type': 'question',
-        'title': `${title}`,
-        'message': `${message}`,
-        'buttons': [
-            'No',
-            'Yes'
-        ]
-    })
-    return confirm['response']
-    // let credential=await prompt({
-    //     title: 'Login',
-    //     label: `${cycle}:`,
-    //     inputAttrs: {
-    //         type: `${type}`,
-    //         required: true
-    //     },
-    //     type: 'input'
-    // })
-    // return credential
-}
-
-async function addPublisher(publisher){
-    let data=await nextpubnum()
-    await createPublisher(publisher,data)
 }
 
 function formatOutDates(data){
@@ -762,61 +500,6 @@ function formatInDate(inDate){
     return reConf
 }
 
-function makeSeriesSelectPopup(){
-    seriesSelectWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
-        webPreferences: {
-            preload: path.join(__dirname, './preload2.js'),
-            nodeIntegration: true
-        }
-
-    })
-
-    seriesSelectWindow.loadFile("html/seriesSelect.html")
-
-    seriesSelectWindow.on('close', async () => {
-        if (currentSeriesID!==undefined){
-            const response=await fetch(`http://127.0.0.1:${port}/getTrueName?seriesID=${currentSeriesID}`);
-            const data=await response.text();
-            let newSeriesName=data
-            win.webContents.send('secondWindow:returnSeriesName', newSeriesName)
-        }
-    });
-
-    return seriesSelectWindow;
-}
-
-function makeIssueInfoPopup(){
-    issueInfoWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
-        webPreferences: {
-            preload: path.join(__dirname, './preload3.js'),
-            nodeIntegration: true
-        }
-    })
-
-    issueInfoWindow.loadFile("html/issuePage.html")
-
-    return issueInfoWindow;
-}
-
-function makeIssueEditPopup(){
-    issueEditWindow = new BrowserWindow({
-        width: 500,
-        height: 500,
-        webPreferences: {
-            preload: path.join(__dirname, './preload4.js'),
-            nodeIntegration: true
-        }
-    })
-
-    issueEditWindow.loadFile("html/issueEdit.html")
-
-    return issueEditWindow;
-}
-
 function createSeriesSelect(){
     return seriesSelectList;
 }
@@ -836,399 +519,3 @@ function setSeriesID(_event, value){
 function closeSeriesSelect(){
     seriesSelectWindow.close()
 }
-
-async function updateCreators(issueName,seriesName,data2){
-    let writerList=data2["Writer"]
-    let coloristList=data2["Colorist"]
-    let pencillerList=data2["Penciller"]
-    let inkerList=data2["Inker"]
-    let artistList=data2["Artist"]
-    for (const name of writerList){
-        const { error } = await supabase
-        .from('RealIssue')
-        .update({ "Writer": 1 })
-        .eq('SeriesName',seriesName)
-        .eq('IssueName',issueName)
-        await insertIssueWriter(issueName,seriesName,name)
-        if (!creatorExists("Writer",name)){
-            insertWriter(issueName,seriesName,name)
-        }
-    }
-
-    for (const name of coloristList){
-        const { error } = await supabase
-        .from('RealIssue')
-        .update({ "Color": 1 })
-        .eq('SeriesName',seriesName)
-        .eq('IssueName',issueName)
-        await insertIssueColor(issueName,seriesName,name)
-        if (!creatorExists("Color",name)){
-            insertColor(issueName,seriesName,name)
-        }
-    }
-
-    for (const name of pencillerList){
-        const { error } = await supabase
-        .from('RealIssue')
-        .update({ "Penciller": 1 })
-        .eq('SeriesName',seriesName)
-        .eq('IssueName',issueName)
-        await insertIssuePenciller(issueName,seriesName,name)
-        if (!creatorExists("Penciller",name)){
-            insertPenciller(issueName,seriesName,name)
-        }
-    }
-
-    for (const name of inkerList){
-        const { error } = await supabase
-        .from('RealIssue')
-        .update({ "Inker": 1 })
-        .eq('SeriesName',seriesName)
-        .eq('IssueName',issueName)
-        await insertIssueInker(issueName,seriesName,name)
-        if (!creatorExists("Inker",name)){
-            insertInker(issueName,seriesName,name)
-        }
-    }
-
-    for (const name of artistList){
-        const { error } = await supabase
-        .from('RealIssue')
-        .update({ "Artist": 1 })
-        .eq('SeriesName',seriesName)
-        .eq('IssueName',issueName)
-        await insertIssueArtist(issueName,seriesName,name)
-        if (!creatorExists("Artist",name)){
-            insertArtist(issueName,seriesName,name)
-        }
-    }
-}
-
-async function getdateentries(date){
-    let midnight=`${date} 00:00:00+00`
-    let eod=`${date} 23:59:59+00`
-    const { data, error } = await supabase.rpc('getdateentries', {midnight:midnight, eod:eod})
-    if (data!==null){
-        return data
-    }
-    else{
-        console.log(error)
-    }
-}
-
-async function getmonthdateentries(start,end){
-    let midnight=`${start} 00:00:00+00`
-    let eod=`${end} 23:59:59+00`
-    const { data, error } = await supabase.rpc('getdateentries', {midnight:midnight, eod:eod})
-    if (data!==null){
-        return data
-    }
-    else{
-        console.log(error)
-    }
-}
-
-async function nextpubnum(){
-    const { data, error } = await supabase.rpc('nextpubnum')
-    if (data!==null){
-        return data+1
-    }
-    else{
-        console.log(error)
-    }
-}
-
-///////////////////////////////////////// SUPABASE FUNTIONS /////////////////////////////////////////
-
-async function getRoleBools(searchissue, searchseries, roles){
-    let { data, error } = await supabase
-    .from("RealIssue")
-    .select(`${roles[0]}, ${roles[1]}, ${roles[2]}, ${roles[3]}, ${roles[4]}`)
-    .eq('IssueName',searchissue)
-    .eq('SeriesName',searchseries)
-    if (data!==null){
-        return data
-    }
-    else{
-        console.log(error)
-    }
-}
-
-async function getCreator(roleName,searchissue,searchseries){
-    let { data, error } = await supabase
-    .from(`Issue${roleName}`)
-    .select(`${roleName}Name`)
-    .eq('IssueName',searchissue)
-    .eq('SeriesName',searchseries)
-    if (data!==null){
-        return data
-    }
-    else{
-        console.log(error)
-    }
-}
-
-async function getCoverURL(searchissue,searchseries){
-    let { data, error } = await supabase
-    .from('RealIssue')
-    .select('coverURL')
-    .eq('SeriesName',searchseries)
-    .eq('IssueName',searchissue)
-    if (data!==null){
-        return data
-    }
-    else{
-        console.log(error)
-    }
-}
-
-async function getSeriesIDRPC(searchseries){
-    let { data, error } = await supabase
-    .from("Series")
-    .select('seriesID')
-    .eq('SeriesName',searchseries)
-    if (data[0]['seriesID']!==null){
-        return data[0]['seriesID']
-    }
-    else{
-        console.log(error)
-    }
-}
-
-async function getSeriesPubRPC(searchseries){
-    let { data, error } = await supabase
-    .from("Series")
-    .select('Publisher')
-    .eq('SeriesName',searchseries)
-    if (data[0]['Publisher']!==null){
-        return (data[0]['Publisher'])
-    }
-    else{
-        console.log(error)
-    }
-}
-
-async function issueExists(searchseries,searchissue){
-    let { count, error } = await supabase
-    .from('RealIssue')
-    .select('*', { count: 'exact'})
-    .eq('SeriesName',searchseries)
-    .eq('IssueName',searchissue)
-    if (count!==null){
-        return count
-    }
-    else{
-        console.log(error)
-    }
-}
-
-async function entryExists(searchseries,searchissue,date){
-    let midnight=`${date} 00:00:00`
-    let eod=`${date} 23:59:59`
-    let { count, error } = await supabase
-    .from('Entry')
-    .select('*', { count: 'exact'})
-    .eq('SeriesName', searchseries)
-    .eq('IssueName', searchissue)
-    .gte("DateString", midnight)
-    .lte("DateString", eod)
-    if (count!==null){
-        return count
-    }
-    else{
-        console.log(error)
-    }
-}
-
-async function creatorExists(role,searchcreator){
-    let { count, error } = await supabase
-    .from(role)
-    .select('*', { count: 'exact'})
-    .eq(`${role}Name`,searchcreator)
-    if (count!==null){
-        return count
-    }
-    else{
-        console.log(error)
-    }
-}
-
-async function callRPC(func,args){
-    // console.log(args)
-    const { data, error } = await supabase.rpc(func, args)
-    if (data!==null){
-        return data
-    }
-    else{
-        console.log(error)
-    }
-}
-
-async function createSeriesRPC(seriesName, publisher, xmen){
-    const { error } = await supabase
-    .from('Series')
-    .insert({SeriesName:seriesName, Publisher:publisher, Xmen:xmen})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function createSeriesWithID(seriesName, publisher, xmen, seriesID ){
-    console.log(seriesID)
-    const { error } = await supabase
-    .from('Series')
-    .insert({SeriesName:seriesName, Publisher:publisher, Xmen:xmen, seriesID:seriesID})
-    if (error!==null){
-        console.log(error)
-    }
-    else{
-        console.log("Added New Series: " + seriesName);
-
-    }
-}
-
-async function addIssueRPC(issueName, seriesName, xmenAdj){
-    const { error } = await supabase
-    .from('RealIssue')
-    .insert({IssueName:issueName, SeriesName:seriesName, XmenAdj:xmenAdj})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function addEntryRPC(issueName, seriesName, date){
-    const { error } = await supabase
-    .from('Entry')
-    .insert({IssueName:issueName, SeriesName:seriesName, DateString:date})
-    if (error!==null){
-        console.log(error)
-    }
-    else{
-        console.log("Added New Issue: " + seriesName + " #" + issueName + " on " + date);
-
-    }
-}
-
-async function createPublisher(publisher, num){
-    const { error } = await supabase
-    .from('publisher')
-    .insert({publisher:publisher, list_order:num+1})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function updateIssueCover(series,issue,url){
-    const { error } = await supabase
-    .from('RealIssue')
-    .update({ coverURL: url })
-    .eq('SeriesName',series)
-    .eq('IssueName',issue)
-}
-
-async function updateIssueID(series,issue,id){
-    const { error } = await supabase
-    .from('RealIssue')
-    .update({ issueID: id })
-    .eq('SeriesName',series)
-    .eq('IssueName',issue)
-}
-    
-///////////////////////////////////////// CREATOR FUNTIONS /////////////////////////////////////////
-
-async function insertIssueWriter(issueName,seriesName,creator){
-    const { error } = await supabase
-    .from(`IssueWriter`)
-    .insert({IssueName:issueName, SeriesName:seriesName, WriterName:creator})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function insertWriter(issueName,seriesName,creator){
-    const { error } = await supabase
-    .from(`Writer`)
-    .insert({IssueName:issueName, SeriesName:seriesName, Writer:creator})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function insertIssueColor(issueName,seriesName,creator){
-    const { error } = await supabase
-    .from(`IssueColor`)
-    .insert({IssueName:issueName, SeriesName:seriesName, ColorName:creator})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function insertColor(issueName,seriesName,creator){
-    const { error } = await supabase
-    .from(`Color`)
-    .insert({IssueName:issueName, SeriesName:seriesName, Color:creator})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function insertIssuePenciller(issueName,seriesName,creator){
-    const { error } = await supabase
-    .from(`IssuePenciller`)
-    .insert({IssueName:issueName, SeriesName:seriesName, PencillerName:creator})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function insertPenciller(issueName,seriesName,creator){
-    const { error } = await supabase
-    .from(`Penciller`)
-    .insert({IssueName:issueName, SeriesName:seriesName, Penciller:creator})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function insertIssueInker(issueName,seriesName,creator){
-    const { error } = await supabase
-    .from(`IssueInker`)
-    .insert({IssueName:issueName, SeriesName:seriesName, InkerName:creator})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function insertInker(issueName,seriesName,creator){
-    const { error } = await supabase
-    .from(`Inker`)
-    .insert({IssueName:issueName, SeriesName:seriesName, Inker:creator})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function insertIssueArtist(issueName,seriesName,creator){
-    const { error } = await supabase
-    .from(`IssueArtist`)
-    .insert({IssueName:issueName, SeriesName:seriesName, ArtistName:creator})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-async function insertArtist(issueName,seriesName,creator){
-    const { error } = await supabase
-    .from(`Artist`)
-    .insert({IssueName:issueName, SeriesName:seriesName, Artist:creator})
-    if (error!==null){
-        console.log(error)
-    }
-}
-
-
-app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-        console.log('poopoop')
-    }
-})

@@ -47,7 +47,7 @@ contextBridge.exposeInMainWorld('thirdWindow', {
 
 contextBridge.exposeInMainWorld('process', {
     dothelogin: () => ipcRenderer.invoke("process:dothelogin"),
-    logout: () => ipcRenderer.invoke("process:logout")
+    // logout: () => ipcRenderer.invoke("process:logout")
 })
 
 // API Definition
