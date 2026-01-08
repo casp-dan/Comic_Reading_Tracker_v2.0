@@ -253,3 +253,11 @@ RETURN QUERY
 select COUNT(*) from public."RealIssue" i where i."issuename"=searchissue;
 END;
 \$$ LANGUAGE plpgsql;
+
+## getseries
+CREATE OR REPLACE FUNCTION public.getseries(midnight timestamp with time zone, eod timestamp with time zone) RETURNS TABLE("SeriesName" text, "coverURL" text) AS $$
+BEGIN
+RETURN QUERY
+SELECT distinct e."SeriesName", s."coverURL" FROM public."Entry" e, public."Series" s WHERE e."DateString">=midnight and e."DateString"<=eod and e."SeriesName"=s."SeriesName";
+END;
+\$$ LANGUAGE plpgsql;

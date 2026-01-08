@@ -12,7 +12,8 @@ contextBridge.exposeInMainWorld('views', {
     seriesEntries: (value) => ipcRenderer.invoke('views:series', value),
     dateEntries: (value) => ipcRenderer.invoke('views:date', value),
     creatorEntries: (value) => ipcRenderer.invoke('views:creator', value),
-    seriesExists: (value) => ipcRenderer.invoke('views:seriesExists', value)
+    seriesExists: (value) => ipcRenderer.invoke('views:seriesExists', value),
+    periodSeries: (value) => ipcRenderer.invoke('views:periodSeries', value)
 })
 
 contextBridge.exposeInMainWorld('stats', {

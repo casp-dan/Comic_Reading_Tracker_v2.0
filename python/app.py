@@ -50,7 +50,7 @@ def seriesAPI():
         year=request.args.get('year')
     seriesID=None
     
-    seriesID=getSeriesInfo(year,publisher,seriesName)
+    seriesID=getSeriesID(year,publisher,seriesName)
     return str(seriesID)
 
 @app.route("/issueAPI", methods = ['GET', 'POST', 'OPTIONS'] )
@@ -111,20 +111,16 @@ def getTrueSeriesName():
     series=m.series(seriesID)
     return f"{series.name} ({series.year_began})"
 
-app.route("/getSeriesInfo", methods = ['GET', 'POST', 'OPTIONS'] )
-def getSeriesInfo(year,pub,seriesName):
+
+@app.route("/getSeriesID", methods = ['GET', 'POST', 'OPTIONS'] )
+def getSeriesID():
     if request.method == 'GET':
-        year=request.args.get('year')
-        pub=request.args.get('pub')
-        seriesName=request.args.get('seriesName')
+        seriesID=request.args.get('seriesID')
     mok_user=app.config['mok_user']
     mok_pass=app.config['mok_pass']
     m = mokkari.api(mok_user, mok_pass)
-    seriesList=m.series_list({"year_began":year, "publisher":pub})
-    for i in seriesList:
-        if i.display_name==seriesName:
-            return i.id
-    return None
+    issueList=m.issues_list({"series_id":seriesID})
+    return str(issueList[0].image)
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=port_num)

@@ -24,7 +24,6 @@ const getHTML = (cover,series,id) => {
 
 
 function sendID(id){
-    console.log(id)
     window.window2.setSeriesID(id)
     window.window2.closeWindow()
 }

@@ -2,11 +2,15 @@ const {BrowserWindow, dialog} = require('electron/main')
 const path = require('path');
 const {nextpubnum, createPublisher}=require('./supabaseMethods')
 const prompt = require('electron-prompt');
+const electronDialog = require('electron').dialog;
 
+let currentSeriesID;
 
+function setID(newSeriesID){
+    currentSeriesID=newSeriesID
+}
 
-
-function makeSeriesSelectPopup(){
+function makeSeriesSelectPopup(win,port){
     seriesSelectWindow = new BrowserWindow({
         width: 800,
         height: 600,
@@ -93,7 +97,7 @@ function errorMessage(msgTtl){
     dialog.showErrorBox(title, message)
 }
 
-function dialogMessage(msgTtl){
+function dialogMessage(msgTtl, win){
     let title=msgTtl[0]
     let dialogMessage=msgTtl[1]
     dialog.showMessageBox(win, {
@@ -142,6 +146,7 @@ async function addPublisher(publisher){
 }
 
 module.exports={
+    setID,
     makeSeriesSelectPopup,
     makeIssueInfoPopup,
     makeIssueEditPopup,

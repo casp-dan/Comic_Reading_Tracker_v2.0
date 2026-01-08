@@ -136,7 +136,6 @@ async function creatorExists(role,searchcreator){
 }
 
 async function callRPC(func,args){
-    // console.log(args)
     const { data, error } = await supabase.rpc(func, args)
     if (data!==null){
         return data
@@ -155,11 +154,11 @@ async function createSeriesRPC(seriesName, publisher, xmen){
     }
 }
 
-async function createSeriesWithID(seriesName, publisher, xmen, seriesID ){
+async function createSeriesWithID(seriesName, publisher, xmen, seriesID, pic){
     // console.log(seriesID)
     const { error } = await supabase
     .from('Series')
-    .insert({SeriesName:seriesName, Publisher:publisher, Xmen:xmen, seriesID:seriesID})
+    .insert({SeriesName:seriesName, Publisher:publisher, Xmen:xmen, seriesID:seriesID, coverURL:pic})
     if (error!==null){
         console.log(error)
     }

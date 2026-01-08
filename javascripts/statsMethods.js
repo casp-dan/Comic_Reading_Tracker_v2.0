@@ -101,6 +101,20 @@ async function getSnapshotStats(startEnd) {
     return totals
 }
 
+function formatInDate(inDate){
+    let splitted=inDate.split('/')
+    if (parseInt(splitted[0])<10){
+            splitted[0]='0'+splitted[0]
+        }
+    if (parseInt(splitted[1])<10){
+        splitted[1]='0'+splitted[1]
+    }
+    splitted[2]='20'+splitted[2]
+    reConf=splitted[2]+'-'+splitted[0]+'-'+splitted[1]
+    return reConf
+}
+
+
 module.exports={
     getYearlyStats,
     getMonthlyStats,

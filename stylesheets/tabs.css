@@ -409,6 +409,14 @@ html>body tbody.scrollContent td + td + td {
   padding-right: 50px;
   visibility:hidden
 }
+#seriesSnapshotLabel{
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  float:right;
+  margin-right:  50px;
+  padding-right: 50px;
+  visibility:hidden
+}
 
 #publisherStuff{
   display: grid;

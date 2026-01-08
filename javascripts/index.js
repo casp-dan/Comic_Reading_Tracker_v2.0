@@ -24,34 +24,34 @@ let userInfo;
 
 async function initialize () {
     
-    var python = require('child_process').spawn('python3', ['./python/app.py']);
-    python.stdout.on('data', function (data) {
-        console.log("data: ", data.toString('utf8'))
-    });
-    python.stderr.on('data', (data) => {
-        console.log(`stderr: ${data}`);
-    });
+    // var python = require('child_process').spawn('python3', ['./python/app.py']);
+    // python.stdout.on('data', function (data) {
+    //     console.log("data: ", data.toString('utf8'))
+    // });
+    // python.stderr.on('data', (data) => {
+    //     console.log(`stderr: ${data}`);
+    // });
 
-    // let python;
-    // python = path.join(process.cwd(), 'app.exe')
-    // var execfile = require("child_process").execFile;
-    // execfile(
-    //     python, 
-    //     {
-    //         windowsHide: true,
-    //     },
-    //     (err, stdout, stderr) => {
-    //         if (err) {
-    //             console.log(err);
-    //         }
-    //         if (stdout) {
-    //             console.log(stdout);
-    //         }
-    //         if (stderr) {
-    //             console.log(stderr);
-    //         }
-    //     }
-    // )
+    let python;
+    python = path.join(process.cwd(), 'app.exe')
+    var execfile = require("child_process").execFile;
+    execfile(
+        python, 
+        {
+            windowsHide: true,
+        },
+        (err, stdout, stderr) => {
+            if (err) {
+                console.log(err);
+            }
+            if (stdout) {
+                console.log(stdout);
+            }
+            if (stderr) {
+                console.log(stderr);
+            }
+        }
+    )
     
 
     doLogin()
@@ -98,6 +98,7 @@ app.whenReady().then(() => {
     ipcMain.handle('views:date', getDateEntries)
     ipcMain.handle("views:creator", getCreatorEntries);
     ipcMain.handle("views:seriesExists", seriesExists);
+    ipcMain.handle("views:periodSeries", periodSeries);
     
     ipcMain.handle('stats:yearly', getYearlyStats)
     ipcMain.handle('stats:monthly', getMonthlyStats)
@@ -195,6 +196,23 @@ async function getSeriesEntries(_event, seriesName) {
     }
 }
 
+async function periodSeries(_event, inDates) {
+    let start=inDates[0]
+    let end=inDates[1]
+    let startDate=formatInDate(start)
+    let endDate=formatInDate(end)
+    let sendMidnight=`${startDate} 00:00:00+00`
+    let sendEod=`${endDate} 23:59:59+00`
+    try{
+        let data=await supabaseMethods.callRPC("getseries",{midnight:sendMidnight,eod:sendEod})
+        // console.log(data)// let toRet=formatOutDates(data)
+        return data
+    }
+    catch(err){
+        console.error(err);
+    }
+}
+
 async function getDateEntries(_event, dateType) {
     try{
         let startDate=dateType[0]
@@ -246,7 +264,7 @@ async function fetchSeriesList(_event, values){
         startYear=seriesName.split("(")[1].split(")")[0]
     }
     await makeSeriesSelectList(searchTerm,publisher,startYear)
-    seriesSelectWindow=popups.makeSeriesSelectPopup();
+    seriesSelectWindow=popups.makeSeriesSelectPopup(win,port);
 }
 
 async function showInfo(_event){
@@ -293,7 +311,8 @@ async function getTime(_event,values){
     let date=formatInDate(inDate)
     let midnight=`${date} 00:00:00`
     let eod=`${date} 23:59:59`
-    return await supabaseMethods.getLastDateTime(issue,series,midnight,eod)
+    data=await supabaseMethods.getTime(issue,series,midnight,eod)
+    dayTimeEdit=data[0]
 }
 
 async function createSeries(_event, values){
@@ -304,7 +323,11 @@ async function createSeries(_event, values){
         await supabaseMethods.createSeriesRPC(seriesName, publisher, xmen)
     }
     else{
-        await supabaseMethods.createSeriesWithID(seriesName, publisher, xmen, currentSeriesID )
+        const response2=await fetch(`http://127.0.0.1:${port}/getSeriesID?seriesID=${currentSeriesID}`);
+
+        // const response=await fetch(`http://127.0.0.1:${port}/getSeriesInfo?seriesID=${currentSeriesID}`);
+        let pic=await response2.text();
+        await supabaseMethods.createSeriesWithID(seriesName, publisher, xmen, currentSeriesID, pic)
     }
     console.log(`Series created: ${seriesName}`)
     currentSeriesID=undefined
@@ -400,7 +423,7 @@ function errorMessage(_event, msgTtl){
 }
 
 function dialogMessage(_event, msgTtl){
-    popups.dialogMessage(msgTtl)
+    popups.dialogMessage(msgTtl, win)
 }
 
 function publisherPrompt(){
@@ -513,9 +536,41 @@ function getDayTimeObj(){
 }
 
 function setSeriesID(_event, value){
+    console.log('why not?')
+    console.log(value)
     currentSeriesID=parseInt(value)
 }
 
 function closeSeriesSelect(){
+    popups.setID(currentSeriesID)
     seriesSelectWindow.close()
 }
+
+// function makeSeriesSelectPopup(){
+//     let seriesSelectWindow = new BrowserWindow({
+//         width: 800,
+//         height: 600,
+//         webPreferences: {
+//             preload: path.join(__dirname, './preloads/preload2.js'),
+//             nodeIntegration: true
+//         }
+
+//     })
+
+//     seriesSelectWindow.loadFile("html/seriesSelect.html")
+
+//     seriesSelectWindow.on('close', async () => {
+//         console.log('hello?????')
+//         console.log(currentSeriesID)
+//         if (currentSeriesID!==undefined){
+//             console.log('hey hi')
+//             const response=await fetch(`http://127.0.0.1:${port}/getTrueName?seriesID=${currentSeriesID}`);
+//             const data=await response.text();
+//             let newSeriesName=data
+//             console.log(newSeriesName)
+//             win.webContents.send('secondWindow:returnSeriesName', newSeriesName)
+//         }
+//     });
+
+//     return seriesSelectWindow;
+// }

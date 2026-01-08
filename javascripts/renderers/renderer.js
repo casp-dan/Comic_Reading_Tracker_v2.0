@@ -28,6 +28,8 @@ const creatorTable = document.querySelector("#creatorTable");
 const issueCountCreator = document.querySelector("#issueCountCreator");
 const monthsDrop = document.querySelector("#month");
 const yearsDrop = document.querySelector("#year");
+const monthsSeriesDrop = document.querySelector("#monthSeries");
+const yearsSeriesDrop = document.querySelector("#yearSeries");
 const total = document.querySelector("#totalValue");
 const marvelTotal = document.querySelector("#marvelValue");
 const dcTotal = document.querySelector("#dcValue");
@@ -39,13 +41,18 @@ const seriesTotal = document.querySelector("#seriesValue");
 const statsForm = document.querySelector("#entry-form");
 const totalsDisplay = document.querySelector("#totalsDisplay");
 const snapshotBox = document.querySelector("#snapshotBox");
+const seriesSnapshotBox = document.querySelector("#seriesSnapshotBox");
 const percentBox = document.querySelector("#percentBox");
 const monthBox = document.querySelector("#monthBoxDateView");
 const searchSeriesButton = document.querySelector("#searchSeriesButton");
 const snapshotStart = document.querySelector("#snapshotStart");
+const seriesSnapshotStart = document.querySelector("#seriesSnapshotStart");
 const xmenCheckBox = document.querySelector("#xmenCheckBox");
 const xmenAdjCheckBox = document.querySelector("#xmenAdjCheckBox");
 const snapshotEnd = document.querySelector("#snapshotEnd");
+const seriesSnapshotEnd = document.querySelector("#seriesSnapshotEnd");
+const seriesTitleTable = document.querySelector("#seriesTitleTable");
+const issueCountseriesTitle = document.querySelector("#issueCountseriesTitle");
 // const logoutButton = document.querySelector("#logoutButton");
 const today = "";
 
@@ -68,7 +75,7 @@ const months = [
     "November",
     "December",
 ];
-const years=["2022","2023","2024", "2025"];
+const startYear=2022;
 let totalValues=[]
 
 document.getElementById('makeEntryTab').addEventListener('click', async () => {
@@ -189,12 +196,20 @@ monthsDrop.addEventListener('change', function() {
     getTotals()
 });
 
+monthsSeriesDrop.addEventListener('change', function() {
+    getSeriesVisibility()
+});
+
 statsForm.addEventListener('submit', function() {
     getTotals()
 });
 
 yearsDrop.addEventListener('change', function() {
     getTotals()
+});
+
+yearsSeriesDrop.addEventListener('change', function() {
+    getSeriesVisibility()
 });
 
 document.getElementById("statsTab").addEventListener("click", async () => {
@@ -226,6 +241,8 @@ percentBox.addEventListener('change', function() {
 });
 
 snapshotBox.addEventListener('change', handleSnapshot);
+
+seriesSnapshotBox.addEventListener('change', handleSeriesSnapshot);
 
 // logoutButton.addEventListener('click', async function() {
 //     await window.process.logout();
@@ -262,6 +279,7 @@ creatorSearchButton.addEventListener("submit", (event) => {
 
 
 window.secondWindow.getSeriesName((value) => {
+    console.log(value)
     seriesField.value=value
 })
 
@@ -282,6 +300,27 @@ async function handleSnapshot() {
         snapshotEnd.style.visibility="hidden";
         snapshotStart.innerHTML="Snapshot Start Date: " 
         snapshotEnd.innerHTML="Snapshot End Date: " 
+    }
+}
+
+async function handleSeriesSnapshot() {
+    if (this.checked) {
+        let snapDates=await window.dialogs.snapPrompt()//.then((snapDates) => {
+        let startDate=dateFactory(snapDates[0])
+        let endDate=dateFactory(snapDates[1])
+        // getSnapshotStats(startDate,endDate)
+        seriesSnapshotStart.style.visibility="visible";
+        seriesSnapshotStart.innerHTML+=startDate
+        seriesSnapshotEnd.style.visibility="visible";
+        seriesSnapshotEnd.innerHTML+=endDate
+        getSeriesTitles(startDate,endDate)
+    }
+    else {
+        clearSeriesTitleTable()
+        seriesSnapshotStart.style.visibility="hidden";
+        seriesSnapshotEnd.style.visibility="hidden";
+        seriesSnapshotStart.innerHTML="Snapshot Start Date: " 
+        seriesSnapshotEnd.innerHTML="Snapshot End Date: " 
     }
 }
 
@@ -333,6 +372,11 @@ function clearCreatorTable() {
     issueCountCreator.innerText = "Issues Read:";
 }
 
+function clearSeriesTitleTable() {
+    seriesTitleTable.innerHTML = "";
+    issueCountseriesTitle.innerText = "Series Read:";
+}
+
 async function listCreatorViewItems(name,role) {
     let issueCount = 0;
     clearCreatorTable();
@@ -344,6 +388,18 @@ async function listCreatorViewItems(name,role) {
         issueCount += 1;
     });
     issueCountCreator.innerText += " " + issueCount;
+}
+
+async function listSeriesTitleItems(list) {
+    let issueCount = 0;
+    clearSeriesTitleTable();
+    list.forEach(function (item) {
+        const html=getSeriesTitleHTML(item['SeriesName'],item['coverURL']);
+        // const html = getDateHTML(item[1], item[0], item[3], item[2]);
+        seriesTitleTable.innerHTML += html;
+        issueCount += 1;
+    });
+    issueCountseriesTitle.innerText += " " + issueCount;
 }
 
 // async function listSeriesViewItems(){
@@ -501,13 +557,26 @@ const getSeriesHTML = (series,issue,date,cover) => {
                 </tr> \n`
 }
 
+const getSeriesTitleHTML = (series,cover) => {
+    let outSeries=series.replaceAll("\', None","")
+    outSeries=outSeries.replaceAll(")]', None","")
+    outSeries=outSeries.replaceAll(")]","")
+    if (cover===null){
+        cover="../assets/funnyCover.jpg"
+    }
+    return `<tr class="normalRow">
+                <td><img src="${cover}"  width="150.08"></img></th></td>
+                <td>${outSeries}</td>
+            </tr> \n`
+}
+
 const getDateHTML = (series,issue,date,cover) => {
     let outSeries=series.replaceAll("\', None","")
     outSeries=outSeries.replaceAll(")]', None","")
     outSeries=outSeries.replaceAll(")]","")
     sendSeries=outSeries.replaceAll("\'", "///")
     issue=issue.replaceAll("///","\'")
-    if (cover==="None"){
+    if (cover===null){
         cover="../assets/funnyCover.jpg"
     }
     return `<tr class="normalRow">
@@ -605,6 +674,39 @@ function getTotals(){
     }
     if (percentBox.checked && action){
         percentBox.checked=false;
+    }
+}
+
+function getSeriesVisibility(){
+    if (monthsSeriesDrop.value===months[1]){
+        yearsSeriesDrop.style.visibility="visible";
+        if (yearsSeriesDrop.value!==""){
+            let splitted=yearsSeriesDrop.value.toString().split("")
+            let shortYear=`${splitted[2]}${splitted[3]}`
+            let startDate=`1/1/${shortYear}`
+            let endDate=`12/31/${shortYear}`
+            getSeriesTitles(startDate,endDate)
+        }
+    }
+    else{
+        if (yearsSeriesDrop.value===""){
+            yearsSeriesDrop.style.visibility="visible";
+        }
+        else{
+            let num=(months.indexOf(monthsSeriesDrop.value)-1);
+            let monthNum;
+            if (num<10){
+                monthNum=`0${num}` ;
+            }
+            else{
+                monthNum=`${num}`;
+            }
+            let splitted=yearsSeriesDrop.value.toString().split("")
+            let shortYear=`${splitted[2]}${splitted[3]}`
+            let date=dateFactory(`${monthNum}/1/${shortYear}`)
+            let end=date.getEndDate()
+            getSeriesTitles(date,end);
+        }
     }
 }
 
@@ -710,9 +812,13 @@ function getToday(){
     return `${month}/${day}/${year}`
 }
 
+function getCurrYear(){
+    const date = new Date();
+    return date.getFullYear();
+}
+
 async function getIssueInfo(issue, series,date){
     series=series.replaceAll("///","\'")
-    console.log(date)
     await window.thirdWindow.getInfo([issue,series,date])
     // console.log(pubList)
     await window.thirdWindow.showInfo()
@@ -1099,7 +1205,28 @@ const entryFactory=(seriesName, issues, date, publisher, xmen, xmenAdj) => {
     }
 }
 
+function getYears(startYear){
+    let curYear=getCurrYear()
+    let years=[]
+    let year=startYear
+    while (year<=curYear){
+        years.push(year)
+        year++
+    }
+    return years
+}
+
+async function getSeriesTitles(startDate,endDate){
+    let seriesTitles=await window.views.periodSeries([startDate.toString(),endDate.toString()]);
+    listSeriesTitleItems(seriesTitles)
+}
+
 const htmlMonths = getStatsDropdown(months);
+let years=getYears(startYear);
 const htmlYears = getStatsDropdown(years);
 monthsDrop.innerHTML = htmlMonths;
 yearsDrop.innerHTML = htmlYears;
+let splitted=htmlMonths.split('<option value="Overview">Overview</option>')
+let shortMonths=`${splitted[0]}${splitted[1]}`
+monthsSeriesDrop.innerHTML = shortMonths;
+yearsSeriesDrop.innerHTML = htmlYears;

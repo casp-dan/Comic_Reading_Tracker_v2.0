@@ -12,6 +12,7 @@
 			<button class="tablinks" onclick="openCity(event, 'seriesView')" id="seriesViewTab">Series View</button>
 			<button class="tablinks" onclick="openCity(event, 'dateView')" id="dateViewTab">Date View</button>
 			<button class="tablinks" onclick="openCity(event, 'creatorView')" id="creatorViewTab">Creator View</button>
+			<button class="tablinks" onclick="openCity(event, 'seriesTitleView')" id="seriesTitleViewTab">Series Title View</button>
 			<button class="tablinks" onclick="openCity(event, 'stats')" id="statsTab">Stats</button>
 			<button class="tablinks" onclick="openCity(event, 'logout')" id="logoutTab">Login</button>
 		</div>
@@ -129,6 +130,42 @@
 				</table>
 			</div>
 			<p id="issueCountCreator" style="text-align: center;">Issues Read:</p> 
+		</div>	
+		<div id="seriesTitleView" class="tabcontent">
+			<span onclick="this.parentElement.style.display='none'" class="topright">&times</span>
+			<div id="tableContainer" class="tableContainer">
+				<form id="creator-search">
+					<div class="monthYear">
+							<select id="monthSeries"></select>
+							<select id="yearSeries" style=visibility:hidden></select>
+					</div>
+					<div>
+						<input type="checkbox" id="seriesSnapshotBox" name="snapshotBox">
+						<label for="seriesSnapshotBox">View Snapshot</label><br>
+					</div>
+					<div id="seriesSnapshotLabel">
+						<label id="seriesSnapshotStart">Snapshot Start Date: </label>
+						<label id="seriesSnapshotEnd">Snapshot End Date: </label>
+					</div>
+					<!-- <select id="creatorRole"></select> -->
+					<!-- <select id="searchCreator"></select> -->
+					<!-- <input type="string" class="input" required placeholder="Creator Name" id="creatorSearch"> -->
+					<!-- <input type="submit" class="btn btn-accent" value="Search" /> -->
+				</form>
+				<table border="0" cellpadding="0" cellspacing="0" width="100%" class="scrollTable">
+					<thead class="fixedHeader" id="seriesTitleTableHead">
+					<tr>
+						<th><a href="#">Cover</a></th>  
+						<th><a href="#">Series</a></th>
+						<!-- <th><a href="#">Issue</a></th> -->
+						<!-- <th><a href="#">Date</a></th> -->
+					</tr>
+					</thead>
+					<tbody class="scrollContent" id="seriesTitleTable">
+					</tbody>
+				</table>
+			</div>
+			<p id="issueCountseriesTitle" style="text-align: center;">Issues Read:</p> 
 		</div>
 		<div id="stats" class="tabcontent">
 		<span onclick="this.parentElement.style.display='none'" class="topright">&times</span>
