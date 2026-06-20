@@ -271,7 +271,11 @@ document.getElementById("creatorViewTab").addEventListener("click", async () => 
 
 creatorSearchButton.addEventListener("submit", (event) => {
     event.preventDefault();
-    listCreatorViewItems(creatorSearch.value,roleDrop.value);
+    let role=roleDrop.value
+    if (role=='Colorist'){
+        role='Color'
+    }
+    listCreatorViewItems(creatorSearch.value,role);
 });
 
 
@@ -354,8 +358,12 @@ async function makeDropdowns(type) {
 }
 
 function renderCreatorView(names) {
+    let role=roleDrop.value
+    if (role=='Colorist'){
+        role='Color'
+    }
     const searchCreator = names.filter(function (name) {
-        return name[`${roleDrop.value}Name`]
+        return name[`${role}Name`]
             .toString()
             .toLowerCase()
             .replaceAll("'", "")
@@ -363,7 +371,7 @@ function renderCreatorView(names) {
                 creatorSearch.value.toLowerCase().replaceAll("'", "")
             );
     });
-    const htmlNames = getNamedDropdown(searchCreator, `${roleDrop.value}Name`);
+    const htmlNames = getNamedDropdown(searchCreator, `${role}Name`);
     creatorDrop.innerHTML = htmlNames;
 }
 
@@ -443,16 +451,22 @@ function getStatsDropdown(list){
 }
 
 function render(series){
-    const searchSeries=series.filter(function(title) {
-        return title['SeriesName'].toString().toLowerCase().replaceAll("\'","").includes(seriesField.value.toLowerCase().replaceAll("\'",""));
+    let searchSeries=[]
+    series.forEach(element => {
+        if (seriesField.value.split(" ").every(sub => element['SeriesName'].toString().toLowerCase().replaceAll("\'","").includes(sub.toLowerCase().replaceAll("\'","")))){
+            searchSeries.push(element);
+        }
     });
     const htmlTitles=getNamedDropdown(searchSeries, 'SeriesName');
     seriesDrop.innerHTML = htmlTitles;
 }
 
 function renderView(series){
-    const searchSeries=series.filter(function(title) {
-        return title['SeriesName'].toString().toLowerCase().replaceAll("\'","").includes(seriesFieldViewTab.value.toLowerCase().replaceAll("\'",""));
+    let searchSeries=[]
+    series.forEach(element => {
+        if (seriesFieldViewTab.value.split(" ").every(sub => element['SeriesName'].toString().toLowerCase().replaceAll("\'","").includes(sub.toLowerCase().replaceAll("\'","")))){
+            searchSeries.push(element);
+        }
     });
     const htmlTitles=getNamedDropdown(searchSeries, 'SeriesName');
     seriesDropViewTab.innerHTML = htmlTitles;
